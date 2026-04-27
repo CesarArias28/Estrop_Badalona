@@ -1,0 +1,34 @@
+---
+import instagramData from '~/data/instagram.json';
+---
+
+<div id="social" class="max-w-7xl mx-auto px-4 sm:px-6 py-20 relative">
+  <div class="text-center mb-12">
+    <h2 class="text-3xl font-bold tracking-tight sm:text-4xl text-white">El Vibe en Directo</h2>
+    <p class="text-muted text-lg mt-4">Síguenos en Instagram y no te pierdas nada.</p>
+  </div>
+
+  <swiper-container class="w-full" slides-per-view="1" breakpoints='{"640": {"slidesPerView": 2}, "1024": {"slidesPerView": 4}}' space-between="20" loop="true" autoplay-delay="3000">
+    {instagramData.map((post) => (
+      <swiper-slide>
+        <div class="group relative rounded-xl overflow-hidden aspect-[4/5] cursor-pointer">
+          <img src={post.image} alt="Instagram Feed" class="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+          
+          <!-- Overlay -->
+          <div class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center gap-4">
+            <div class="flex items-center gap-2 text-white text-2xl font-bold drop-shadow-md">
+              <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="currentColor" class="text-accent"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+              {post.likes}
+            </div>
+            <a href={post.link} target="_blank" class="px-6 py-2 bg-primary/90 backdrop-blur-sm text-white rounded-full font-semibold hover:bg-primary transition shadow-[0_0_15px_rgba(168,85,247,0.5)]">Ver en Instagram</a>
+          </div>
+        </div>
+      </swiper-slide>
+    ))}
+  </swiper-container>
+</div>
+
+<script>
+  import { register } from 'swiper/element/bundle';
+  register();
+</script>

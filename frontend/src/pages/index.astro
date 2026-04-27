@@ -1,0 +1,101 @@
+---
+import Layout from '~/layouts/PageLayout.astro';
+import Hero from '~/components/widgets/Hero.astro';
+import Features from '~/components/widgets/Features.astro';
+import Content from '~/components/widgets/Content.astro';
+import Showroom from '~/components/widgets/Showroom.astro';
+import LiveFromEstrop from '~/components/widgets/LiveFromEstrop.astro';
+
+const metadata = {
+  title: 'Estrop 44 - Bar Musical & Eventos',
+  ignoreTitleTemplate: true,
+};
+---
+
+<Layout metadata={metadata}>
+  <!-- Hero Section (El Gancho) -->
+  <Hero
+    actions={[
+      {
+        variant: 'primary',
+        text: 'Reservar Mesa',
+        href: '#reservas',
+        icon: 'tabler:calendar-event',
+      },
+      { text: 'Ver Eventos', href: '#tardeo' },
+    ]}
+    image={{ src: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?q=80&w=2070&auto=format&fit=crop', alt: 'Estrop 44 Bar Musical' }}
+  >
+    <Fragment slot="title">
+      Vive la noche en <span class="text-accent dark:text-white highlight"> Estrop 44</span>
+    </Fragment>
+
+    <Fragment slot="subtitle">
+      <span class="hidden sm:inline">
+        <span class="font-semibold">El mejor ambiente de la ciudad.</span> Copas premium, la mejor música y eventos exclusivos. 
+      </span>
+      Únete a nosotros para el tardeo, celebra tu cumpleaños o simplemente ven a disfrutar de la noche.
+    </Fragment>
+  </Hero>
+
+  <!-- Features Grid (¿Por qué nosotros?) -->
+  <Features
+    id="features"
+    tagline="¿Por qué nosotros?"
+    title="La experiencia Estrop 44"
+    subtitle="Descubre lo que nos hace únicos y por qué somos el lugar de referencia."
+    items={[
+      {
+        title: 'Música en Directo & DJs',
+        description: 'Cada fin de semana contamos con los mejores DJs y sesiones de música en directo para animar la noche.',
+        icon: 'tabler:music',
+      },
+      {
+        title: 'Cócteles de Autor',
+        description: 'Nuestros bartenders preparan mezclas únicas. Atrévete a probar nuestras especialidades.',
+        icon: 'tabler:glass-cocktail',
+      },
+      {
+        title: 'Eventos Privados',
+        description: 'Celebra tu cumpleaños, despedida o evento de empresa con nosotros en un espacio exclusivo.',
+        icon: 'tabler:confetti',
+      },
+    ]}
+  />
+
+  <!-- El Showroom (Cartas de Experiencia) -->
+  <Showroom />
+
+  <!-- Feed de Instagram (Bento Grid) -->
+  <LiveFromEstrop />
+
+  <!-- Formulario / CTA WhatsApp (Fase Inicial) -->
+  <div id="reservas" class="max-w-4xl mx-auto p-4 sm:p-6 mb-12">
+    <div class="text-center mb-8">
+      <h2 class="text-3xl font-bold tracking-tight sm:text-4xl text-primary">Reserva tu mesa</h2>
+      <p class="text-muted text-lg mt-4">Habla con nuestro asistente para gestionar tu reserva rápidamente por WhatsApp.</p>
+    </div>
+    
+    <div class="bg-slate-900/50 backdrop-blur-md rounded-2xl p-10 text-center flex flex-col items-center justify-center border border-primary/30 shadow-[0_0_15px_rgba(168,85,247,0.2)] hover:shadow-[0_0_25px_rgba(168,85,247,0.4)] transition-shadow duration-300">
+      <span class="p-5 bg-green-500 text-white rounded-full mb-6 shadow-[0_0_20px_rgba(34,197,94,0.4)] animate-pulse">
+        <svg xmlns="http://www.w3.org/2000/svg" width="40" height="40" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+          <path stroke="none" d="M0 0h24v24H0z" fill="none"></path>
+          <path d="M3 21l1.65 -3.8a9 9 0 1 1 3.4 2.9l-5.05 .9"></path>
+          <path d="M9 10a.5 .5 0 0 0 1 0v-1a.5 .5 0 0 0 -1 0v1a5 5 0 0 0 5 5h1a.5 .5 0 0 0 0 -1h-1a.5 .5 0 0 0 0 1"></path>
+        </svg>
+      </span>
+      <h3 class="text-2xl font-bold text-white mb-4">¿Listo para la mejor noche?</h3>
+      <p class="text-muted mb-8 max-w-md mx-auto">Haz clic abajo y envíanos un mensaje. Nuestro bot te ayudará a encontrar la mesa perfecta en segundos.</p>
+      
+      <a 
+        href="https://wa.me/34600000000?text=Hola,%20quiero%20reservar%20una%20mesa%20en%20Estrop%2044" 
+        target="_blank" 
+        rel="noopener noreferrer"
+        class="inline-flex items-center justify-center rounded-full bg-green-500 hover:bg-green-600 text-white font-bold text-lg px-8 py-4 transition-transform hover:scale-105"
+      >
+        Reservar por WhatsApp
+      </a>
+    </div>
+  </div>
+
+</Layout>

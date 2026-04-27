@@ -1,0 +1,51 @@
+---
+import '@fontsource-variable/inter';
+// 'Outfit' fits well for a club vibe
+import '@fontsource/outfit'; 
+---
+
+<style is:inline>
+  :root {
+    --aw-font-sans: 'Outfit', sans-serif;
+    --aw-font-serif: 'Outfit', serif;
+    --aw-font-heading: 'Outfit', sans-serif;
+
+    /* Vibrant Neon Purple */
+    --aw-color-primary: rgb(168 85 247); /* purple-500 */
+    --aw-color-secondary: rgb(147 51 234); /* purple-600 */
+    --aw-color-accent: rgb(236 72 153); /* neon pink-500 */
+
+    --aw-color-text-heading: rgb(255 255 255);
+    --aw-color-text-default: rgb(226 232 240);
+    --aw-color-text-muted: rgb(148 163 184);
+    
+    /* Deep dark background */
+    --aw-color-bg-page: rgb(9 9 11); /* zinc-950 */
+    --aw-color-bg-page-dark: rgb(9 9 11);
+
+    ::selection {
+      background-color: rgba(168, 85, 247, 0.3);
+      color: white;
+    }
+  }
+
+  .dark {
+    --aw-font-sans: 'Outfit', sans-serif;
+    --aw-font-serif: 'Outfit', serif;
+    --aw-font-heading: 'Outfit', sans-serif;
+
+    --aw-color-primary: rgb(168 85 247);
+    --aw-color-secondary: rgb(147 51 234);
+    --aw-color-accent: rgb(236 72 153);
+
+    --aw-color-text-heading: rgb(255 255 255);
+    --aw-color-text-default: rgb(226 232 240);
+    --aw-color-text-muted: rgb(148 163 184);
+    --aw-color-bg-page: rgb(9 9 11);
+
+    ::selection {
+      background-color: rgba(236, 72, 153, 0.3);
+      color: white;
+    }
+  }
+</style>

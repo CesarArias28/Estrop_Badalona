@@ -1,0 +1,32 @@
+[
+  {
+    "id": 1,
+    "image": "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=800&auto=format&fit=crop",
+    "likes": "1.2k",
+    "link": "https://www.instagram.com/estropbadalona/?hl=es"
+  },
+  {
+    "id": 2,
+    "image": "https://images.unsplash.com/photo-1566737236500-c8ac43014a67?q=80&w=800&auto=format&fit=crop",
+    "likes": "850",
+    "link": "https://www.instagram.com/estropbadalona/?hl=es"
+  },
+  {
+    "id": 3,
+    "image": "https://images.unsplash.com/photo-1545128485-c400e7702796?q=80&w=800&auto=format&fit=crop",
+    "likes": "2.4k",
+    "link": "https://www.instagram.com/estropbadalona/?hl=es"
+  },
+  {
+    "id": 4,
+    "image": "https://images.unsplash.com/photo-1572561300743-2dd367ed0c9a?q=80&w=800&auto=format&fit=crop",
+    "likes": "942",
+    "link": "https://www.instagram.com/estropbadalona/?hl=es"
+  },
+  {
+    "id": 5,
+    "image": "https://images.unsplash.com/photo-1574096079513-d8259312b78a?q=80&w=800&auto=format&fit=crop",
+    "likes": "1.5k",
+    "link": "https://instagram.com"
+  }
+]
