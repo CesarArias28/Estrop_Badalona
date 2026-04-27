@@ -31,7 +31,8 @@ export const headerData = {
       href: 'https://wa.me/34600000000?text=Hola,%20quiero%20reservar%20una%20mesa%20en%20Estrop%2044', 
       target: '_blank',
       variant: 'primary',
-      id: 'nav-whatsapp-btn'
+      id: 'nav-whatsapp-btn',
+      class: 'animate-heartbeat bg-green-500 hover:bg-green-600 border-none shadow-[0_0_15px_rgba(34,197,94,0.5)]'
     }
   ],
 };

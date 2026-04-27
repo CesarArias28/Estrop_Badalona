@@ -21,12 +21,17 @@ export default {
 
       animation: {
         fade: 'fadeInUp 1s both',
+        heartbeat: 'heartbeat 2s ease-in-out infinite',
       },
 
       keyframes: {
         fadeInUp: {
           '0%': { opacity: 0, transform: 'translateY(2rem)' },
           '100%': { opacity: 1, transform: 'translateY(0)' },
+        },
+        heartbeat: {
+          '0%, 100%': { transform: 'scale(1)' },
+          '50%': { transform: 'scale(1.05)' },
         },
       },
     },
