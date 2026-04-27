@@ -1,6 +1,6 @@
 site:
-  name: AstroWind
-  site: 'https://astrowind.vercel.app'
+  name: Estrop 44
+  site: 'https://estrop44.vercel.app'
   base: '/'
   trailingSlash: false
 
@@ -9,14 +9,14 @@ site:
 # Default SEO metadata
 metadata:
   title:
-    default: AstroWind
-    template: '%s — AstroWind'
-  description: "\U0001F680 Suitable for Startups, Small Business, Sass Websites, Professional Portfolios, Marketing Websites, Landing Pages & Blogs."
+    default: Estrop 44
+    template: '%s — Estrop 44'
+  description: "Bar Musical Estrop 44 Badalona."
   robots:
     index: true
     follow: true
   openGraph:
-    site_name: AstroWind
+    site_name: Estrop 44
     images:
       - url: '~/assets/images/default.png'
         width: 1200
