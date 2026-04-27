@@ -1,6 +1,6 @@
 ---
 import Layout from '~/layouts/PageLayout.astro';
-import HeroCarousel from '~/components/widgets/HeroCarousel.astro';
+import Hero from '~/components/widgets/Hero.astro';
 import Features from '~/components/widgets/Features.astro';
 import Content from '~/components/widgets/Content.astro';
 import Showroom from '~/components/widgets/Showroom.astro';
@@ -21,8 +21,33 @@ const metadata = {
 ---
 
 <Layout metadata={metadata}>
-  <!-- WOW Effect Hero Carousel -->
-  <HeroCarousel />
+  <!-- Hero Section -->
+  <Hero
+    actions={[
+      {
+        variant: 'primary',
+        text: 'Reservar Sala',
+        href: 'https://wa.me/34600000000',
+        target: '_blank',
+        icon: 'tabler:calendar-event',
+        class: 'animate-heartbeat shadow-[0_0_15px_rgba(34,197,94,0.5)] bg-green-500 hover:bg-green-600 border-none text-white'
+      },
+      { text: 'Ver Eventos', href: '#salas' },
+    ]}
+    image={{ src: 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?q=80&w=2070&auto=format&fit=crop', alt: 'Estrop 44 Bar Musical' }}
+  >
+    <Fragment slot="title">
+      <span class="text-6xl sm:text-8xl md:text-9xl font-black text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-green-600 drop-shadow-[0_0_40px_rgba(74,222,128,0.8)] tracking-tighter uppercase leading-none -ml-2">
+        ESTROP 44
+      </span>
+    </Fragment>
+
+    <Fragment slot="subtitle">
+      <span class="text-xl sm:text-2xl font-bold uppercase tracking-widest text-white mt-6 block drop-shadow-md">
+        El mejor ambiente de Badalona
+      </span>
+    </Fragment>
+  </Hero>
 
   <!-- Features Grid (¿Por qué nosotros?) -->
   <Features
