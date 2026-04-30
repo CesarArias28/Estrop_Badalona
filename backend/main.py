@@ -16,7 +16,7 @@ redis = Redis(
 
 WHATSAPP_TOKEN = os.getenv("WHATSAPP_TOKEN")
 PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID")
-VERIFY_TOKEN = os.getenv("WHATSAPP_VERIFY_TOKEN", "mock_token_123")
+VERIFY_TOKEN = os.getenv("WHATSAPP_VERIFY_TOKEN", "estrop44cesar")
 
 ROOMS = {
     "sala1": {"name": "Sala 1", "min_spend": 300, "options": {
