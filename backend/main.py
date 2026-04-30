@@ -2,6 +2,7 @@ import os
 import json
 import httpx
 from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import PlainTextResponse
 from upstash_redis import Redis
 from dotenv import load_dotenv
 
@@ -152,7 +153,7 @@ def verify(request: Request):
     token = request.query_params.get("hub.verify_token")
     challenge = request.query_params.get("hub.challenge")
     if mode == "subscribe" and token == VERIFY_TOKEN:
-        return int(challenge)
+        return PlainTextResponse(content=challenge, status_code=200)
     raise HTTPException(status_code=403, detail="Forbidden")
 
 @app.post("/webhook/whatsapp")
