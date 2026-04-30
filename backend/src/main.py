@@ -1,16 +1,20 @@
 import os
+import json
+import asyncio
 import httpx
-from fastapi import FastAPI, Request, HTTPException, BackgroundTasks
-from pydantic import BaseModel
+from fastapi import FastAPI, Request, HTTPException
+from upstash_redis import Redis
 from dotenv import load_dotenv
 
 load_dotenv()
 
 app = FastAPI(title="Estrop 44 WhatsApp Bot API")
 
-# Diccionario en memoria para almacenar el estado del bot por número de teléfono
-# Formato: { "34600000000": { "state": "WAITING_PEOPLE", "data": {} } }
-user_states = {}
+# Redis para estado persistente (Upstash - free tier)
+redis = Redis(
+    url=os.getenv("UPSTASH_REDIS_REST_URL"),
+    token=os.getenv("UPSTASH_REDIS_REST_TOKEN")
+)
 
 WHATSAPP_TOKEN = os.getenv("WHATSAPP_TOKEN")
 PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID")
@@ -37,218 +41,222 @@ ROOMS = {
     }
 }
 
+# ── Helpers de estado en Redis ──────────────────────────────────────────────
+
+def get_state(phone: str) -> dict:
+    raw = redis.get(f"state:{phone}")
+    if raw:
+        return json.loads(raw)
+    return {"state": "START", "data": {}}
+
+def save_state(phone: str, state: dict):
+    # Conversaciones expiran en 2 horas de inactividad
+    redis.setex(f"state:{phone}", 7200, json.dumps(state))
+
+def clear_state(phone: str):
+    redis.delete(f"state:{phone}")
+
+# ── Envío de mensajes ───────────────────────────────────────────────────────
+
 async def send_whatsapp_message(to: str, data: dict):
     if not WHATSAPP_TOKEN or not PHONE_NUMBER_ID:
         print(f"MOCK SEND to {to}: {data}")
         return
-    
+
     url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
     headers = {
         "Authorization": f"Bearer {WHATSAPP_TOKEN}",
         "Content-Type": "application/json"
     }
-    
-    payload = {
-        "messaging_product": "whatsapp",
-        "recipient_type": "individual",
-        "to": to,
-        **data
-    }
-    
-    # Retry up to 3 times with 30s timeout
-    for attempt in range(3):
-        try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.post(url, headers=headers, json=payload)
-                if response.status_code == 200:
-                    print(f"Message sent to {to}: {response.status_code}")
-                    return
-                else:
-                    print(f"Error sending message (attempt {attempt+1}): {response.status_code} {response.text}")
-        except (httpx.ConnectTimeout, httpx.ReadTimeout, httpx.ConnectError) as e:
-            print(f"Connection error (attempt {attempt+1}/3): {e}")
-            if attempt < 2:
-                import asyncio
-                await asyncio.sleep(2)
-    print(f"Failed to send message to {to} after 3 attempts")
+    payload = {"messaging_product": "whatsapp", "recipient_type": "individual", "to": to, **data}
+
+    async with httpx.AsyncClient(timeout=20.0) as client:
+        response = await client.post(url, headers=headers, json=payload)
+        if response.status_code == 200:
+            print(f"✅ Sent to {to}")
+        else:
+            print(f"❌ Error {response.status_code}: {response.text}")
 
 async def send_text(to: str, text: str):
     await send_whatsapp_message(to, {"type": "text", "text": {"body": text}})
 
-async def send_interactive_list(to: str, text: str, button_text: str, sections: list):
+async def send_interactive_list(to: str, body: str, button_text: str, sections: list):
     await send_whatsapp_message(to, {
         "type": "interactive",
         "interactive": {
             "type": "list",
-            "body": {"text": text},
-            "action": {
-                "button": button_text,
-                "sections": sections
-            }
+            "body": {"text": body},
+            "action": {"button": button_text, "sections": sections}
         }
     })
 
-async def send_interactive_buttons(to: str, text: str, buttons: list):
+async def send_interactive_buttons(to: str, body: str, buttons: list):
     await send_whatsapp_message(to, {
         "type": "interactive",
         "interactive": {
             "type": "button",
-            "body": {"text": text},
+            "body": {"text": body},
             "action": {
                 "buttons": [{"type": "reply", "reply": {"id": b["id"], "title": b["title"]}} for b in buttons]
             }
         }
     })
 
+# ── Lógica del bot ──────────────────────────────────────────────────────────
+
 async def process_message(phone: str, text: str, interactive: dict = None):
-    # Initialize state if new user
-    if phone not in user_states:
-        user_states[phone] = {"state": "START", "data": {}}
+    user = get_state(phone)
+    state = user["state"]
+    data = user["data"]
 
-    state = user_states[phone]["state"]
-    data = user_states[phone]["data"]
-
-    # Comando global para reiniciar
-    if text and text.lower().strip() in ["cancelar", "reiniciar", "hola"]:
-        user_states[phone] = {"state": "START", "data": {}}
+    # Comandos globales para reiniciar
+    if text and text.lower().strip() in ["cancelar", "reiniciar", "hola", "inicio"]:
+        user = {"state": "START", "data": {}}
         state = "START"
 
     if state == "START":
-        await send_text(phone, "¡Hola! 👋 Soy el asistente de Estrop 44. Vamos a gestionar tu reserva rápido. 🥳\n\n¿Para cuántas personas buscas sala? (Escribe solo el número)")
-        user_states[phone]["state"] = "WAITING_PEOPLE"
-        
+        await send_text(phone,
+            "¡Hola! 👋 Soy el asistente de *Estrop 44*. Vamos a gestionar tu reserva rápido. 🥳\n\n"
+            "¿Para cuántas personas buscas sala? Escribe solo el número."
+        )
+        save_state(phone, {"state": "WAITING_PEOPLE", "data": {}})
+
     elif state == "WAITING_PEOPLE":
-        if not text.isdigit():
+        if not text.strip().isdigit():
             await send_text(phone, "Por favor, escribe solo el número (ejemplo: 12).")
             return
-        data["people"] = int(text)
-        await send_text(phone, "¿Para qué día y hora quieres reservar? Usa este formato: DD/MM a las HH:MM. (Ejemplo: Sábado 25/05 a las 19:30).")
-        user_states[phone]["state"] = "WAITING_DATE"
-        
+        data["people"] = int(text.strip())
+        await send_text(phone,
+            "¿Para qué día y hora quieres reservar?\n\n"
+            "Usa este formato: *Sábado 25/05 a las 19:30*"
+        )
+        save_state(phone, {"state": "WAITING_DATE", "data": data})
+
     elif state == "WAITING_DATE":
         data["date"] = text.strip()
-        
-        # Build Interactive List format for WhatsApp
         sections = []
-        for room_id, room_data in ROOMS.items():
-            rows = []
-            for opt_id, opt_data in room_data["options"].items():
-                rows.append({
+        for room_data in ROOMS.values():
+            rows = [
+                {
                     "id": opt_id,
-                    "title": opt_data["title"][:24], # WhatsApp limits title to 24 chars
+                    "title": opt_data["title"][:24],
                     "description": f"Precio: {opt_data['price']}€/pers"
-                })
-            sections.append({
-                "title": room_data["name"][:24],
-                "rows": rows
-            })
-            
+                }
+                for opt_id, opt_data in room_data["options"].items()
+            ]
+            sections.append({"title": room_data["name"][:24], "rows": rows})
+
         await send_interactive_list(
-            phone, 
-            f"Perfecto. Aquí tienes las opciones disponibles para tus {data['people']} invitados. Pulsa el botón para ver detalles de cada sala y elegir tu tipo de acceso:",
+            phone,
+            f"Perfecto, {data['people']} invitados el {data['date']}.\n\n"
+            "Aquí tienes las opciones disponibles. Pulsa el botón para elegir sala y ticket:",
             "Ver Salas y Tickets",
             sections
         )
-        user_states[phone]["state"] = "WAITING_ROOM"
-        
+        save_state(phone, {"state": "WAITING_ROOM", "data": data})
+
     elif state == "WAITING_ROOM":
         if not interactive or interactive.get("type") != "list_reply":
-            await send_text(phone, "Por favor, selecciona una opción usando el botón de 'Ver Salas y Tickets'.")
+            await send_text(phone, "Por favor, usa el botón *'Ver Salas y Tickets'* para elegir.")
             return
-            
+
         selected_id = interactive["list_reply"]["id"]
-        
-        room_id = selected_id.split('_')[0]
-        full_room_id = "sala1" if room_id == "s1" else "sala2"
+        full_room_id = "sala1" if selected_id.startswith("s1") else "sala2"
         room = ROOMS[full_room_id]
         option = room["options"][selected_id]
-        
+
         data["room_name"] = room["name"]
         data["option_title"] = option["title"]
-        
-        total_price = option["price"] * data["people"]
-        data["total"] = total_price
+        data["total"] = option["price"] * data["people"]
         data["min_spend"] = room["min_spend"]
-        
-        msg = f"Has elegido *{room['name']}* con *{option['title']}*.\n\n"
-        msg += f"Para {data['people']} personas, el total de tickets es *{total_price}€*.\n"
-        msg += f"⚠️ Recuerda que el consumo mínimo de esta sala es de *{room['min_spend']}€* (puedes completarlo con consumiciones extra o servicios de la sala).\n\n"
-        msg += "IMPORTANTE: El horario de sala privada es de 18:30 a 23:00. A las 23h abrimos al público, recogemos pero la fiesta sigue 🕺. No se permite bebida del exterior.\n\n"
-        msg += "¿Celebras algo especial (como un cumpleaños) o tienes alguna petición especial? Escríbelo ahora o responde 'Ninguna'."
-        
+
+        msg = (
+            f"Has elegido *{room['name']}* con *{option['title']}*.\n\n"
+            f"Para {data['people']} personas → Total tickets: *{data['total']}€*\n"
+            f"⚠️ Consumo mínimo de sala: *{room['min_spend']}€*\n\n"
+            "📌 Horario sala privada: 18:30–23:00h. A las 23h abrimos al público, recogemos pero la fiesta sigue 🕺\n"
+            "🚫 No se permite bebida del exterior.\n\n"
+            "¿Celebras algo especial (cumpleaños, empresa...) o tienes alguna petición? "
+            "Escríbelo o responde *Ninguna*."
+        )
         await send_text(phone, msg)
-        user_states[phone]["state"] = "WAITING_NOTES"
-        
+        save_state(phone, {"state": "WAITING_NOTES", "data": data})
+
     elif state == "WAITING_NOTES":
         data["notes"] = text.strip()
-        
-        summary = "¡Entendido! Revisa los datos de tu solicitud:\n\n"
-        summary += f"👥 Personas: {data['people']}\n"
-        summary += f"📅 Fecha/Hora: {data['date']}\n"
-        summary += f"📍 Sala y Ticket: {data['room_name']}, {data['option_title']}\n"
-        summary += f"📝 Notas: {data['notes']}\n\n"
-        summary += "¿Confirmamos el envío?"
-        
+        summary = (
+            "¡Entendido! Revisa tu solicitud:\n\n"
+            f"👥 Personas: {data['people']}\n"
+            f"📅 Fecha/Hora: {data['date']}\n"
+            f"📍 Sala: {data['room_name']} — {data['option_title']}\n"
+            f"📝 Notas: {data['notes']}\n\n"
+            "¿Confirmamos el envío?"
+        )
         await send_interactive_buttons(phone, summary, [
-            {"id": "confirm", "title": "Confirmar Reserva"},
-            {"id": "edit", "title": "Editar Solicitud"}
+            {"id": "confirm", "title": "✅ Confirmar Reserva"},
+            {"id": "edit", "title": "✏️ Editar"}
         ])
-        user_states[phone]["state"] = "WAITING_CONFIRMATION"
-        
+        save_state(phone, {"state": "WAITING_CONFIRMATION", "data": data})
+
     elif state == "WAITING_CONFIRMATION":
         if not interactive or interactive.get("type") != "button_reply":
-            await send_text(phone, "Por favor, usa los botones para Confirmar o Editar.")
+            await send_text(phone, "Por favor, usa los botones para confirmar o editar.")
             return
-            
+
         btn_id = interactive["button_reply"]["id"]
         if btn_id == "edit":
-            del user_states[phone]
-            await send_text(phone, "¡Vale! Empecemos de nuevo. Escribe 'Hola' para arrancar.")
+            clear_state(phone)
+            await send_text(phone, "¡Vale! Empecemos de nuevo. Escribe *Hola* cuando quieras. 😊")
         else:
-            await send_text(phone, "✅ Tu solicitud ha sido enviada.\n\nEl equipo de Estrop 44 revisará la disponibilidad y te confirmará la reserva y el método de pago por este mismo chat en breve. ¡Gracias!")
-            # Al llegar a este punto la reserva está captada.
-            # Se podría añadir un envío a un grupo de Telegram de administradores aquí.
-            del user_states[phone]
+            clear_state(phone)
+            await send_text(phone,
+                "✅ *¡Solicitud enviada!*\n\n"
+                "El equipo de Estrop 44 revisará la disponibilidad y te confirmará "
+                "la reserva y el método de pago por este mismo chat en breve.\n\n"
+                "¡Gracias y hasta pronto! 🎉"
+            )
+
+# ── Endpoints ───────────────────────────────────────────────────────────────
+
+@app.get("/")
+def root():
+    return {"message": "Estrop 44 WhatsApp Bot — Running ✅"}
 
 @app.get("/webhook/whatsapp")
 def verify_webhook(request: Request):
     mode = request.query_params.get("hub.mode")
     token = request.query_params.get("hub.verify_token")
     challenge = request.query_params.get("hub.challenge")
-
     if mode and token:
         if mode == "subscribe" and token == VERIFY_TOKEN:
             return int(challenge)
-        else:
-            raise HTTPException(status_code=403, detail="Verification failed")
+        raise HTTPException(status_code=403, detail="Verification failed")
     raise HTTPException(status_code=400, detail="Invalid request")
 
 @app.post("/webhook/whatsapp")
-async def handle_whatsapp_message(request: Request, background_tasks: BackgroundTasks):
+async def handle_whatsapp_message(request: Request):
     payload = await request.json()
-    
     try:
         entry = payload.get("entry", [])[0]
         changes = entry.get("changes", [])[0]
         value = changes.get("value", {})
         messages = value.get("messages", [])
-        
+
         if messages:
             msg = messages[0]
             phone = msg.get("from")
-            
             text = ""
             interactive = None
-            
+
             if msg.get("type") == "text":
                 text = msg["text"]["body"]
             elif msg.get("type") == "interactive":
                 interactive = msg["interactive"]
-                
-            # Procesar el mensaje en segundo plano para devolver el 200 OK de inmediato a Meta
-            background_tasks.add_task(process_message, phone, text, interactive)
-            
+
+            # Procesamos de forma síncrona (< 2s) antes de devolver el 200 OK
+            await process_message(phone, text, interactive)
+
     except Exception as e:
         print(f"Error processing webhook: {e}")
-        
+
     return {"status": "success"}
