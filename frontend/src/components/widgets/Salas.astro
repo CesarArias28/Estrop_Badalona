@@ -41,15 +41,34 @@ const salas = [
 
 <section id="salas" class="py-20 px-4 bg-slate-950">
   <div class="max-w-6xl mx-auto">
-    <!-- Header -->
-    <div class="text-center mb-14">
-      <p class="text-pink-500 font-semibold uppercase tracking-widest text-sm mb-3">Espacios Privados</p>
-      <h2 class="text-4xl sm:text-5xl font-black text-white mb-4">
-        Nuestras <span class="text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-purple-500">Salas</span>
+    <!-- Header Refactorizado -->
+    <div class="text-center mb-16">
+      <h2 class="text-4xl sm:text-6xl font-black text-white mb-6 tracking-tighter">
+        ¿Qué quieres <span class="text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-purple-500">celebrar</span>?
       </h2>
-      <p class="text-slate-400 text-lg max-w-xl mx-auto">
-        Haz clic en cada sala para descubrir los precios y reservar tu experiencia.
+      <p class="text-slate-400 text-lg max-w-2xl mx-auto mb-12">
+        Desde una noche épica con amigos hasta el evento corporativo más exclusivo. En Estrop 44 creamos el ambiente perfecto para ti.
       </p>
+
+      <!-- Grid de Tipos de Eventos -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-20 max-w-4xl mx-auto">
+        {[
+          { icon: "🎉", label: "Cumpleaños", desc: "La fiesta que recordarás" },
+          { icon: "👔", label: "Empresa", desc: "Team building con estilo" },
+          { icon: "🎓", label: "Graduaciones", desc: "El fin de una etapa" },
+          { icon: "🍹", label: "Privados", desc: "Tu bar, tus reglas" }
+        ].map(event => (
+          <div class="p-6 rounded-2xl bg-slate-900/40 border border-white/5 hover:border-pink-500/30 transition-colors group">
+            <span class="text-4xl mb-4 block group-hover:scale-110 transition-transform">{event.icon}</span>
+            <h4 class="text-white font-bold mb-1">{event.label}</h4>
+            <p class="text-slate-500 text-xs">{event.desc}</p>
+          </div>
+        ))}
+      </div>
+
+      <div class="inline-block px-4 py-1.5 rounded-full bg-pink-500/10 border border-pink-500/20 text-pink-400 text-xs font-bold uppercase tracking-widest mb-8">
+        Elige tu espacio
+      </div>
     </div>
 
     <!-- Flip Cards Grid -->
