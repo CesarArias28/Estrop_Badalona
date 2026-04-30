@@ -55,10 +55,22 @@ async def send_whatsapp_message(to: str, data: dict):
         **data
     }
     
-    async with httpx.AsyncClient() as client:
-        response = await client.post(url, headers=headers, json=payload)
-        if response.status_code != 200:
-            print(f"Error sending message: {response.text}")
+    # Retry up to 3 times with 30s timeout
+    for attempt in range(3):
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(url, headers=headers, json=payload)
+                if response.status_code == 200:
+                    print(f"Message sent to {to}: {response.status_code}")
+                    return
+                else:
+                    print(f"Error sending message (attempt {attempt+1}): {response.status_code} {response.text}")
+        except (httpx.ConnectTimeout, httpx.ReadTimeout, httpx.ConnectError) as e:
+            print(f"Connection error (attempt {attempt+1}/3): {e}")
+            if attempt < 2:
+                import asyncio
+                await asyncio.sleep(2)
+    print(f"Failed to send message to {to} after 3 attempts")
 
 async def send_text(to: str, text: str):
     await send_whatsapp_message(to, {"type": "text", "text": {"body": text}})
