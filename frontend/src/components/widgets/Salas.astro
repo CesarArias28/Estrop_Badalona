@@ -193,8 +193,21 @@ const salas = [
     backface-visibility: hidden;
   }
 
+  /* Front: clickable by default, disabled when flipped */
+  .sala-front {
+    pointer-events: auto;
+  }
+  .sala-flip-container.flipped .sala-front {
+    pointer-events: none;
+  }
+
+  /* Back: disabled by default, clickable when flipped */
   .sala-back {
     transform: rotateY(180deg);
+    pointer-events: none;
+  }
+  .sala-flip-container.flipped .sala-back {
+    pointer-events: auto;
   }
 </style>
 
