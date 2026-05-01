@@ -33,24 +33,24 @@ const { socialLinks = [], secondaryLinks = [], links = [], footNote = '', theme 
   >
     <div class="grid grid-cols-1 md:grid-cols-3 gap-8 py-8 md:py-12">
       <div class="flex flex-col">
-        <div class="mb-2">
-          <a class="inline-block font-bold text-xl" href={getHomePermalink()}>{SITE?.name}</a>
+        <div class="dark:text-gray-300 font-medium mb-2">Ubicación</div>
+        <div class="relative w-full h-48 rounded-2xl overflow-hidden group">
+          <iframe
+            src="https://maps.google.com/maps?q=Riera%20de%20Matamoros,%2044,%2008911%20Badalona,%20Barcelona&t=&z=16&ie=UTF8&iwloc=&output=embed"
+            class="absolute inset-0 w-full h-full border-0 filter grayscale-[30%] invert-[100%] hue-rotate-[180deg] saturate-[2] contrast-[1.1] opacity-60 transition-opacity duration-500 group-hover:opacity-80"
+            allowfullscreen=""
+            loading="lazy"
+            referrerpolicy="no-referrer-when-downgrade"
+          ></iframe>
+          <!-- Blank over map to make it clickable -->
+          <a 
+            href="https://maps.google.com/maps?q=Riera%20de%20Matamoros,+44,+08911+Badalona,+Barcelona" 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            class="absolute inset-0 z-10" 
+            aria-label="Abrir en Google Maps"
+          ></a>
         </div>
-        <div class="text-sm text-muted flex gap-1">
-          {
-            secondaryLinks.map(({ text, href }, index) => (
-              <>
-                {index !== 0 ? ' · ' : ''}
-                <a
-                  class="text-muted hover:text-gray-700 dark:text-gray-400 hover:underline transition duration-150 ease-in-out"
-                  href={href}
-                  set:html={text}
-                />
-              </>
-            ))
-          }
-        </div>
-
       </div>
       {
         links.map(({ title, links }) => (
@@ -71,26 +71,7 @@ const { socialLinks = [], secondaryLinks = [], links = [], footNote = '', theme 
                 ))}
               </ul>
             )}
-            
-            {title === 'Legal' && (
-              <div class="mt-8 relative w-full h-48 rounded-2xl overflow-hidden group">
-                <iframe
-                  src="https://maps.google.com/maps?q=Riera%20de%20Matamoros,%2044,%2008911%20Badalona,%20Barcelona&t=&z=16&ie=UTF8&iwloc=&output=embed"
-                  class="absolute inset-0 w-full h-full border-0 filter grayscale-[30%] invert-[100%] hue-rotate-[180deg] saturate-[2] contrast-[1.1] opacity-60 transition-opacity duration-500 group-hover:opacity-80"
-                  allowfullscreen=""
-                  loading="lazy"
-                  referrerpolicy="no-referrer-when-downgrade"
-                ></iframe>
-                <!-- Blank over map to make it clickable -->
-                <a 
-                  href="https://maps.google.com/maps?q=Riera%20de%20Matamoros,+44,+08911+Badalona,+Barcelona" 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  class="absolute inset-0 z-10" 
-                  aria-label="Abrir en Google Maps"
-                ></a>
-              </div>
-            )}
+
           </div>
         ))
       }
