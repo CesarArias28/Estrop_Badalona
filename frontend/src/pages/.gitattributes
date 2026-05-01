@@ -1,0 +1,9 @@
+# Tell Git to convert all text files to use LF line endings
+*.txt text eol=lf
+*.md text eol=lf
+*.js text eol=lf
+*.css text eol=lf
+*.astro text eol=lf
+
+# CRITICAL: Ensure markdown files (like CHANGELOG) are also LF
+CHANGELOG.md text eol=lf
