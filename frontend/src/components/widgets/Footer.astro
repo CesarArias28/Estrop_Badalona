@@ -50,6 +50,20 @@ const { socialLinks = [], secondaryLinks = [], links = [], footNote = '', theme 
             ))
           }
         </div>
+        
+        <!-- Google Maps Card -->
+        <a href="https://www.google.com/maps/search/?api=1&query=Estrop+Badalona" target="_blank" rel="noopener noreferrer" class="mt-6 flex items-center gap-3 p-3 rounded-xl border border-gray-200 dark:border-slate-800 hover:border-pink-500 dark:hover:border-pink-500 transition-colors bg-white/50 dark:bg-slate-900/50 w-max group">
+          <div class="p-2 bg-pink-500/10 rounded-lg text-pink-500 group-hover:scale-110 transition-transform">
+            <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.243-4.243a8 8 0 1111.314 0z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </div>
+          <div>
+            <p class="font-bold text-sm text-slate-800 dark:text-white leading-tight">Estrop Badalona</p>
+            <p class="text-xs text-slate-500 mt-0.5">Ver en Google Maps</p>
+          </div>
+        </a>
       </div>
       {
         links.map(({ title, links }) => (
