@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-app = FastAPI(title="Estrop 44 WhatsApp Bot API")
+app = FastAPI(title="Estrop WhatsApp Bot API")
 
 redis = Redis(
     url=os.getenv("UPSTASH_REDIS_REST_URL"),
@@ -80,7 +80,7 @@ async def process(phone: str, text: str, interactive: dict = None):
         state = "START"
 
     if state == "START":
-        await send_text(phone, "¡Hola! 👋 Soy el asistente de *Estrop 44*. Vamos a gestionar tu reserva. 🥳\n\n¿Para cuántas personas buscas sala? Escribe solo el número.")
+        await send_text(phone, "¡Hola! 👋 Soy el asistente de *Estrop*. Vamos a gestionar tu reserva. 🥳\n\n¿Para cuántas personas buscas sala? Escribe solo el número.")
         save_state(phone, {"state": "WAITING_PEOPLE", "data": {}})
 
     elif state == "WAITING_PEOPLE":
@@ -141,11 +141,11 @@ async def process(phone: str, text: str, interactive: dict = None):
             await send_text(phone, "¡Vale! Escribe *Hola* para empezar de nuevo. 😊")
         else:
             clear_state(phone)
-            await send_text(phone, "✅ *¡Solicitud enviada!*\n\nEl equipo de Estrop 44 te confirmará la reserva por este chat en breve. ¡Gracias! 🎉")
+            await send_text(phone, "✅ *¡Solicitud enviada!*\n\nEl equipo de Estrop te confirmará la reserva por este chat en breve. ¡Gracias! 🎉")
 
 @app.get("/")
 def root():
-    return {"status": "Estrop 44 Bot running ✅"}
+    return {"status": "Estrop Bot running ✅"}
 
 @app.get("/webhook/whatsapp")
 def verify(request: Request):

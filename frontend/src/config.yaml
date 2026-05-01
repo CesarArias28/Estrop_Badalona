@@ -1,6 +1,6 @@
 site:
-  name: Estrop 44
-  site: 'https://estrop44.vercel.app'
+  name: Estrop
+  site: 'https://estrop-44-web.vercel.app'
   base: '/'
   trailingSlash: false
 
@@ -9,14 +9,14 @@ site:
 # Default SEO metadata
 metadata:
   title:
-    default: Estrop 44
-    template: '%s — Estrop 44'
-  description: "Bar Musical Estrop 44 Badalona."
+    default: Estrop
+    template: '%s — Estrop'
+  description: "Bar Musical Estrop Badalona."
   robots:
     index: true
     follow: true
   openGraph:
-    site_name: Estrop 44
+    site_name: Estrop
     images:
       - url: '~/assets/images/default.png'
         width: 1200

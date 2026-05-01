@@ -30,7 +30,7 @@ export const headerData = {
 export const footerData = {
   links: [
     {
-      title: 'Estrop 44',
+      title: 'Estrop',
       links: [
         { text: 'Inicio', href: getPermalink('/') },
         { text: 'Nosotros', href: getPermalink('/#features') },
@@ -52,6 +52,6 @@ export const footerData = {
     { ariaLabel: 'Facebook', icon: 'tabler:brand-facebook', href: '#' },
   ],
   footNote: `
-    © 2026 Estrop 44 Bar Musical · Todos los derechos reservados.
+    © 2026 Estrop Bar Musical · Todos los derechos reservados.
   `,
 };
