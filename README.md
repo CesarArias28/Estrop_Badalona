@@ -73,12 +73,3 @@ Debido a las naturalezas distintas de los servicios (Estático vs Proceso Contin
 5. **Start Command:** `uvicorn src.main:app --host 0.0.0.0 --port $PORT`
 6. Añade las variables de entorno (`WHATSAPP_VERIFY_TOKEN`, etc.).
 7. Deploy. Una vez levantado, usa la nueva URL en Meta.
-
----
-
-Notas sobre el Feed de Instagram
-La sección "Live from Estrop" (`LiveFromEstrop.astro`) está configurada para renderizar de manera asimétrica un **Bento Grid** o **Carrusel** con soporte para vídeo In-Page.
-Actualmente cuenta con un Mock estructural. Para habilitar la sincronización real con la cuenta del bar:
-1. Configura el puente API vía **Behold.so**.
-2. Descomenta las líneas de `fetch` en el archivo `.astro` y pega la URL proporcionada.
-
