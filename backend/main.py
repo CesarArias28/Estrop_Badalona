@@ -72,7 +72,61 @@ async def send_buttons(to: str, body: str, buttons: list):
         "action": {"buttons": [{"type": "reply", "reply": {"id": b["id"], "title": b["title"]}} for b in buttons]}
     }})
 
+async def send_confirmed_reservations(owner_phone: str):
+    keys = redis.keys("conf:*")
+    if not keys:
+        await send_text(owner_phone, "📅 No hay reservas confirmadas activas para los próximos 30 días.")
+        return
+    
+    reservations = []
+    for k in keys:
+        raw = redis.get(k)
+        if raw:
+            try:
+                res_id = k.split(":")[1]
+                data = json.loads(raw)
+                data["id"] = res_id
+                reservations.append(data)
+            except Exception:
+                pass
+                
+    if not reservations:
+        await send_text(owner_phone, "📅 No hay reservas confirmadas activas para los próximos 30 días.")
+        return
+        
+    msg = "📅 *LISTADO DE RESERVAS CONFIRMADAS*\n\n"
+    for idx, r in enumerate(reservations, 1):
+        msg += (
+            f"*{idx}. Reserva {r['id']}*\n"
+            f"👥 Personas: {r['people']}\n"
+            f"📅 Fecha: {r['date']}\n"
+            f"📍 Sala: {r['room_name']} — {r['option_title']}\n"
+            f"👤 Cliente: +{r['client_phone']}\n"
+            f"📝 Notas: {r.get('notes', 'Ninguna')}\n\n"
+        )
+    msg += "💡 Escribe *cancelar <ID>* (ejemplo: *cancelar A1B2C3*) para eliminar alguna de la lista."
+    await send_text(owner_phone, msg)
+
 async def process(phone: str, text: str, interactive: dict = None):
+    # Comandos especiales del dueño
+    if OWNER_PHONE and phone == OWNER_PHONE and text:
+        cleaned_text = text.lower().strip()
+        if cleaned_text in ["reservas", "reserva", "ver reservas", "listado"]:
+            await send_confirmed_reservations(phone)
+            return
+        elif cleaned_text.startswith("cancelar ") or cleaned_text.startswith("eliminar "):
+            parts = text.split()
+            if len(parts) >= 2:
+                res_id = parts[1].upper()
+                if redis.exists(f"conf:{res_id}"):
+                    redis.delete(f"conf:{res_id}")
+                    await send_text(phone, f"✅ Reserva *{res_id}* eliminada del listado con éxito.")
+                else:
+                    await send_text(phone, f"⚠️ No se encontró ninguna reserva confirmada con el ID *{res_id}*.")
+            else:
+                await send_text(phone, "⚠️ Formato incorrecto. Escribe: *cancelar <ID>* (ejemplo: *cancelar A1B2C3*).")
+            return
+
     user = get_state(phone)
     state = user["state"]
     data = user["data"]
@@ -198,6 +252,9 @@ async def process_owner_response(owner_phone: str, btn_id: str):
     client_phone = res_data["client_phone"]
     
     if action == "accept":
+        # Guardar en listado de confirmadas (expira en 30 días para autolimpieza)
+        redis.setex(f"conf:{res_id}", 2592000, json.dumps(res_data))
+
         # Notificar al cliente
         client_msg = (
             f"¡Tu reserva para el **{res_data['date']}** ha sido **CONFIRMADA** por el equipo de Estrop! 🎉\n\n"
