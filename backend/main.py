@@ -1,5 +1,6 @@
 import os
 import json
+import uuid
 import httpx
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import PlainTextResponse
@@ -18,6 +19,7 @@ redis = Redis(
 WHATSAPP_TOKEN = os.getenv("WHATSAPP_TOKEN")
 PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID")
 VERIFY_TOKEN = os.getenv("WHATSAPP_VERIFY_TOKEN", "estrop44cesar")
+OWNER_PHONE = os.getenv("OWNER_PHONE")
 
 ROOMS = {
     "sala1": {"name": "Sala 1", "min_spend": 300, "options": {
@@ -140,8 +142,86 @@ async def process(phone: str, text: str, interactive: dict = None):
             clear_state(phone)
             await send_text(phone, "¡Vale! Escribe *Hola* para empezar de nuevo. 😊")
         else:
+            # Generar ID único de reserva
+            res_id = uuid.uuid4().hex[:6].upper()
+            
+            # Guardar detalles en Redis
+            res_data = {
+                "client_phone": phone,
+                "people": data["people"],
+                "date": data["date"],
+                "room_name": data["room_name"],
+                "option_title": data["option_title"],
+                "total": data["total"],
+                "min_spend": data["min_spend"],
+                "notes": data.get("notes", "Ninguna")
+            }
+            redis.setex(f"res:{res_id}", 172800, json.dumps(res_data)) # Expira en 48 horas
+            
+            # Enviar solicitud de aprobación al dueño
+            owner_msg = (
+                f"🔔 *NUEVA SOLICITUD DE RESERVA ({res_id})*\n\n"
+                f"👤 *Cliente:* +{phone}\n"
+                f"👥 *Personas:* {res_data['people']}\n"
+                f"📅 *Fecha:* {res_data['date']}\n"
+                f"📍 *Sala:* {res_data['room_name']} — {res_data['option_title']}\n"
+                f"💰 *Total:* {res_data['total']}€ (Consumo Mínimo: {res_data['min_spend']}€)\n"
+                f"📝 *Notas:* {res_data['notes']}\n\n"
+                f"¿Deseas confirmar esta solicitud?"
+            )
+            
+            if OWNER_PHONE:
+                await send_buttons(OWNER_PHONE, owner_msg, [
+                    {"id": f"accept_{res_id}", "title": "Confirmar Reserva"},
+                    {"id": f"reject_{res_id}", "title": "Rechazar"}
+                ])
+            else:
+                print(f"MOCK OWNER -> {OWNER_PHONE}: {owner_msg}")
+                
+            # Limpiar estado del cliente e informarles del envío
             clear_state(phone)
             await send_text(phone, "✅ *¡Solicitud enviada!*\n\nEl equipo de Estrop te confirmará la reserva por este chat en breve. ¡Gracias! 🎉")
+
+async def process_owner_response(owner_phone: str, btn_id: str):
+    # Descomponer acción e ID de la reserva
+    parts = btn_id.split("_")
+    action = parts[0] # accept o reject
+    res_id = parts[1]
+    
+    # Obtener detalles de la reserva desde Redis
+    raw_res = redis.get(f"res:{res_id}")
+    if not raw_res:
+        await send_text(owner_phone, f"⚠️ Error: No se encontró la reserva *{res_id}* o ya caducó.")
+        return
+        
+    res_data = json.loads(raw_res)
+    client_phone = res_data["client_phone"]
+    
+    if action == "accept":
+        # Notificar al cliente
+        client_msg = (
+            f"¡Tu reserva para el **{res_data['date']}** ha sido **CONFIRMADA** por el equipo de Estrop! 🎉\n\n"
+            f"📍 *Sala:* {res_data['room_name']} — {res_data['option_title']}\n"
+            f"👥 *Personas:* {res_data['people']}\n\n"
+            f"¡Te esperamos! 🕺"
+        )
+        await send_text(client_phone, client_msg)
+        
+        # Notificar al dueño
+        await send_text(owner_phone, f"✅ Reserva *{res_id}* de +{client_phone} confirmada y notificada.")
+    else:
+        # Notificar al cliente
+        client_msg = (
+            f"Lo sentimos, el equipo de Estrop no ha podido confirmar tu reserva para el **{res_data['date']}** por motivos de aforo o disponibilidad. 😔\n\n"
+            f"Por favor, ponte en contacto directo para buscar otra alternativa."
+        )
+        await send_text(client_phone, client_msg)
+        
+        # Notificar al dueño
+        await send_text(owner_phone, f"❌ Reserva *{res_id}* de +{client_phone} rechazada y notificada.")
+        
+    # Eliminar reserva de Redis para evitar clics duplicados
+    redis.delete(f"res:{res_id}")
 
 @app.get("/")
 def root():
@@ -164,6 +244,16 @@ async def webhook(request: Request):
         phone = msg["from"]
         text = msg["text"]["body"] if msg.get("type") == "text" else ""
         interactive = msg.get("interactive") if msg.get("type") == "interactive" else None
+        
+        # Si es una respuesta de botón y proviene del dueño, procesar aprobación
+        if interactive and interactive.get("type") == "button_reply":
+            btn_id = interactive["button_reply"]["id"]
+            if btn_id.startswith("accept_") or btn_id.startswith("reject_"):
+                # Si está configurado OWNER_PHONE, verificar remitente
+                if not OWNER_PHONE or phone == OWNER_PHONE:
+                    await process_owner_response(phone, btn_id)
+                    return {"status": "ok"}
+        
         await process(phone, text, interactive)
     except Exception as e:
         print(f"Error: {e}")

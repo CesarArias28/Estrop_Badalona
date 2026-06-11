@@ -1,76 +1,66 @@
-<a href="https://www.breatheco.de"><img height="280" align="right" src="https://github.com/4GeeksAcademy/flask-rest-hello/blob/main/docs/assets/badge.png?raw=true"></a>
+# Estrop 44 — WhatsApp Bot Backend (FastAPI + Redis)
 
-# Flask Boilerplate for Junior Developers
+Este es el microservicio de backend para el asistente de reservas del bar musical **Estrop 44**. Está diseñado para interactuar con la **WhatsApp Cloud API (Meta)** de forma asíncrona y gestionar la persistencia temporal de estados en **Upstash Redis**.
 
-Create flask API's in minutes, [📹 watch the video tutorial](https://youtu.be/ORxQ-K3BzQA).
+---
 
-- [Extensive documentation here](https://start.4geeksacademy.com).
-- Integrated with Pipenv for package managing.
-- Fast deloyment to render.com or heroku with `$ pipenv run deploy`.
-- Use of `.env` file.
-- SQLAlchemy integration for database abstraction.
+## 🛠️ Stack Tecnológico
+* **Framework:** [FastAPI](https://fastapi.tiangolo.com/) (Python 3.10+)
+* **Base de Datos:** [Upstash Redis](https://upstash.com/) (REST Client)
+* **Servidor ASGI:** Uvicorn
+* **API de WhatsApp:** Meta Cloud API (v19.0)
 
-## 1) Installation
+---
 
-This template installs itself in a few seconds if you open it for free with Codespaces (recommended) or Gitpod.
-Skip this installation steps and jump to step 2 if you decide to use any of those services.
+## ⚙️ Variables de Entorno (.env)
+Para levantar el servidor necesitas crear un archivo `.env` en este directorio con las siguientes variables:
 
-> Important: The boiplerplate is made for python 3.10 but you can change the `python_version` on the Pipfile.
+```env
+PORT=8000
+ENVIRONMENT=development
 
-The following steps are automatically runned withing gitpod, if you are doing a local installation you have to do them manually:
+# 1. Credenciales de Upstash Redis
+UPSTASH_REDIS_REST_URL="https://your-db-name.upstash.io"
+UPSTASH_REDIS_REST_TOKEN="your_upstash_rest_token"
 
-```sh
-pipenv install;
-psql -U root -c 'CREATE DATABASE example;'
-pipenv run init;
-pipenv run migrate;
-pipenv run upgrade;
+# 2. Configuración de Meta Webhook (Tú la defines en la consola de Meta Developers)
+WHATSAPP_VERIFY_TOKEN="estrop44cesar"
+
+# 3. WhatsApp Cloud API Credentials
+WHATSAPP_TOKEN="EAAXXXX..." # Bearer token permanente o temporal de Meta
+PHONE_NUMBER_ID="12345..." # ID del número de WhatsApp emisor en Meta
+
+# 4. Teléfono del Administrador / Dueño para Aprobaciones
+OWNER_PHONE="34600000000" # Número al que le llegará la confirmación de la reserva
 ```
 
-> Note: Codespaces users can connect to psql by typing: `psql -h localhost -U gitpod example`
+---
 
-## 2) How to Start coding
+## 🚀 Instalación y Servidor Local
 
-There is an example API working with an example database. All your application code should be written inside the `./src/` folder.
+1. **Crear y activar el entorno virtual:**
+   ```bash
+   python -m venv venv
+   # En Windows:
+   venv\Scripts\activate
+   # En macOS/Linux:
+   source venv/bin/activate
+   ```
 
-- src/main.py (it's where your endpoints should be coded)
-- src/models.py (your database tables and serialization logic)
-- src/utils.py (some reusable classes and functions)
-- src/admin.py (add your models to the admin and manage your data easily)
+2. **Instalar las dependencias:**
+   ```bash
+   pip install -r requirements.txt
+   ```
 
-For a more detailed explanation, look for the tutorial inside the `docs` folder.
+3. **Iniciar el servidor local con recarga en vivo:**
+   ```bash
+   python -m uvicorn main:app --reload --port 8000
+   ```
+   El servidor estará disponible en `http://localhost:8000`.
 
-## Remember to migrate every time you change your models
+---
 
-You have to migrate and upgrade the migrations for every update you make to your models:
-
-```bash
-$ pipenv run migrate # (to make the migrations)
-$ pipenv run upgrade  # (to update your databse with the migrations)
-```
-
-## Generate a database diagram
-
-If you want to visualize the structure of your database in the form of a diagram, you can generate it with the following command:
-
-```bash
-$ pipenv run diagram
-```
-
-This command will generate a file with the database diagram based on the models defined in `src/models.py`.
-
-## Check your API live
-
-1. Once you run the `pipenv run start` command your API will start running live and you can open it by clicking in the "ports" tab and then clicking "open browser".
-
-> ✋ If you are working on a coding cloud like [Codespaces](https://docs.github.com/en/codespaces/developing-in-codespaces/forwarding-ports-in-your-codespace#sharing-a-port) or [Gitpod](https://www.gitpod.io/docs/configure/workspaces/ports#configure-port-visibility) make sure that your forwared port is public.
-
-## Publish/Deploy your website!
-
-This boilerplate it's 100% read to deploy with Render.com and Herkou in a matter of minutes. Please read the [official documentation about it](https://start.4geeksacademy.com/deploy).
-
-### Contributors
-
-This template was built as part of the 4Geeks Academy [Coding Bootcamp](https://4geeksacademy.com/us/coding-bootcamp) by [Alejandro Sanchez](https://twitter.com/alesanchezr) and many other contributors. Find out more about our [Full Stack Developer Course](https://4geeksacademy.com/us/coding-bootcamps/part-time-full-stack-developer), and [Data Science Bootcamp](https://4geeksacademy.com/us/coding-bootcamps/datascience-machine-learning).
-
-You can find other templates and resources like this at the [school github page](https://github.com/4geeksacademy/).
+## 🔗 Endpoints del Bot
+* **`GET /`**: Endpoint de salud del servidor (Sanity Check).
+* **`GET /webhook/whatsapp`**: Endpoint utilizado por Meta para verificar el Webhook (Handshake).
+* **`POST /webhook/whatsapp`**: Endpoint donde se reciben todos los mensajes y clics de botones del cliente y del dueño para procesar el flujo.
