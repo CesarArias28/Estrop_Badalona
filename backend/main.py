@@ -118,9 +118,24 @@ async def process(phone: str, text: str, interactive: dict = None):
             parts = text.split()
             if len(parts) >= 2:
                 res_id = parts[1].upper()
-                if redis.exists(f"conf:{res_id}"):
+                raw_res = redis.get(f"conf:{res_id}")
+                if raw_res:
+                    res_data = json.loads(raw_res)
+                    client_phone = res_data.get("client_phone")
+                    
+                    # Eliminar de Redis
                     redis.delete(f"conf:{res_id}")
-                    await send_text(phone, f"✅ Reserva *{res_id}* eliminada del listado con éxito.")
+                    
+                    # Notificar al dueño
+                    await send_text(phone, f"✅ Reserva *{res_id}* de +{client_phone} eliminada y cliente notificado.")
+                    
+                    # Notificar al cliente
+                    if client_phone:
+                        client_msg = (
+                            f"Hola. Te informamos que tu reserva con código *{res_id}* para el **{res_data['date']}** ha sido **CANCELADA**.\n\n"
+                            f"Si crees que es un error o deseas reprogramar, por favor ponte en contacto con nosotros. ¡Gracias!"
+                        )
+                        await send_text(client_phone, client_msg)
                 else:
                     await send_text(phone, f"⚠️ No se encontró ninguna reserva confirmada con el ID *{res_id}*.")
             else:
