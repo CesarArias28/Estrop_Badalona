@@ -20,6 +20,7 @@ WHATSAPP_TOKEN = os.getenv("WHATSAPP_TOKEN")
 PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID")
 VERIFY_TOKEN = os.getenv("WHATSAPP_VERIFY_TOKEN", "estrop44cesar")
 OWNER_PHONE = os.getenv("OWNER_PHONE")
+GOOGLE_SHEET_URL = os.getenv("GOOGLE_SHEET_URL")
 
 ROOMS = {
     "sala1": {"name": "Sala 1", "min_spend": 300, "options": {
@@ -56,6 +57,17 @@ async def send_wa(to: str, data: dict):
     async with httpx.AsyncClient(timeout=20.0) as client:
         r = await client.post(url, headers=headers, json=payload)
         print(f"Meta API -> {r.status_code}: {r.text[:200]}")
+
+async def sync_to_google_sheets(payload: dict):
+    if not GOOGLE_SHEET_URL:
+        print("GOOGLE_SHEET_URL not set, skipping Google Sheets sync.")
+        return
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            r = await client.post(GOOGLE_SHEET_URL, json=payload, follow_redirects=True)
+            print(f"Google Sheets sync: {r.status_code} - {r.text}")
+    except Exception as e:
+        print(f"Error syncing to Google Sheets: {e}")
 
 async def send_text(to: str, text: str):
     await send_wa(to, {"type": "text", "text": {"body": text}})
@@ -125,6 +137,13 @@ async def process(phone: str, text: str, interactive: dict = None):
                     
                     # Eliminar de Redis
                     redis.delete(f"conf:{res_id}")
+                    
+                    # Sincronizar cancelación con Google Sheets
+                    sheet_payload = {
+                        "action": "cancel",
+                        "res_id": res_id
+                    }
+                    await sync_to_google_sheets(sheet_payload)
                     
                     # Notificar al dueño
                     await send_text(phone, f"✅ Reserva *{res_id}* de +{client_phone} eliminada y cliente notificado.")
@@ -269,6 +288,20 @@ async def process_owner_response(owner_phone: str, btn_id: str):
     if action == "accept":
         # Guardar en listado de confirmadas (expira en 30 días para autolimpieza)
         redis.setex(f"conf:{res_id}", 2592000, json.dumps(res_data))
+
+        # Sincronizar con Google Sheets
+        sheet_payload = {
+            "action": "confirm",
+            "res_id": res_id,
+            "client_phone": client_phone,
+            "people": res_data.get("people"),
+            "date": res_data.get("date"),
+            "room_name": res_data.get("room_name"),
+            "option_title": res_data.get("option_title"),
+            "total": res_data.get("total"),
+            "notes": res_data.get("notes", "Ninguna")
+        }
+        await sync_to_google_sheets(sheet_payload)
 
         # Notificar al cliente
         client_msg = (

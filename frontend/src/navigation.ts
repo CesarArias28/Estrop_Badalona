@@ -11,6 +11,10 @@ export const headerData = {
       href: getPermalink('/#social'),
     },
     {
+      text: 'Horarios',
+      href: getPermalink('/#horarios'),
+    },
+    {
       text: 'Reservas',
       href: getPermalink('/#reservas'),
     },
