@@ -3,5 +3,16 @@ import { Image } from 'astro:assets';
 import logoImg from '~/assets/images/logo-estrop.png';
 ---
 <div class="flex items-center">
-  <Image src={logoImg} alt="Estrop 44 Logo" class="h-16 w-auto md:h-20 object-contain" widths={[120, 240, 360]} sizes="(max-width: 768px) 120px, 240px" loading="eager" />
+  <Image src={logoImg} alt="Estrop 44 Logo" class="h-16 w-auto md:h-20 object-contain transition-all duration-300 logo-img" widths={[120, 240, 360]} sizes="(max-width: 768px) 120px, 240px" loading="eager" />
 </div>
+
+<style is:global>
+  #header.scroll .logo-img {
+    height: 2.75rem !important; /* ~44px */
+  }
+  @media (min-width: 768px) {
+    #header.scroll .logo-img {
+      height: 3.5rem !important; /* ~56px */
+    }
+  }
+</style>
