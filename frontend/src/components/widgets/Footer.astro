@@ -115,8 +115,8 @@ const { socialLinks = [], secondaryLinks = [], links = [], footNote = '', theme 
       <div class="flex flex-col">
         <h3 class="font-bold text-white text-lg mb-6">Legal y Contacto</h3>
         <nav class="flex flex-col space-y-4 text-sm text-slate-400 mb-8">
-          <a href="#" class="hover:text-pink-500 transition-colors">Términos y Condiciones</a>
-          <a href="#" class="hover:text-pink-500 transition-colors">Política de Privacidad</a>
+          <a href="#" id="trigger-terms" class="hover:text-pink-500 transition-colors">Términos y Condiciones</a>
+          <a href="#" id="trigger-privacy" class="hover:text-pink-500 transition-colors">Política de Privacidad</a>
         </nav>
         
         <div class="flex flex-col space-y-4 text-sm text-slate-400 mb-8">
@@ -151,4 +151,145 @@ const { socialLinks = [], secondaryLinks = [], links = [], footNote = '', theme 
       <p>© 2026 Estrop Bar Musical · Todos los derechos reservados.</p>
     </div>
   </div>
+
+  <!-- Legal Modal (Glassmorphic & Scrollable) -->
+  <div id="legal-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/80 backdrop-blur-sm p-4 opacity-0 transition-opacity duration-300">
+    <div class="relative w-full max-w-2xl bg-slate-950/95 border border-slate-800 rounded-2xl shadow-[0_0_50px_rgba(236,72,153,0.15)] flex flex-col max-h-[85vh] transition-transform duration-300">
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between px-6 py-4 border-b border-slate-900">
+        <h3 id="legal-modal-title" class="text-xl font-bold text-white tracking-tight"></h3>
+        <button id="close-legal-modal" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-900 transition-colors" aria-label="Cerrar">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      </div>
+      
+      <!-- Modal Body (Scrollable content) -->
+      <div class="flex-1 overflow-y-auto p-6 text-sm text-slate-300 space-y-6 leading-relaxed select-text">
+        
+        <!-- Content: Privacy Policy -->
+        <div id="legal-privacy" class="hidden space-y-6">
+          <div class="space-y-4">
+            <h4 class="text-white font-bold text-base border-b border-slate-900 pb-1">1. Responsable del Tratamiento de Datos</h4>
+            <p>
+              <strong>Identidad:</strong> Estrop Bar Musical (en adelante, "Estrop Bar Musical")<br>
+              <strong>Dirección:</strong> Riera de Matamoros, 44, 08911 Badalona, Barcelona<br>
+              <strong>Correo electrónico:</strong> <a href="mailto:contacto@estrop.com" class="text-pink-400 hover:underline">contacto@estrop.com</a>
+            </p>
+            
+            <h4 class="text-white font-bold text-base border-b border-slate-900 pb-1 mt-6">2. Finalidad del Tratamiento</h4>
+            <p>En Estrop Bar Musical tratamos la información que nos facilitan las personas interesadas con el fin principal de gestionar las reservas de mesas o salas y atender consultas generales sobre nuestros servicios y horarios. La comunicación para estas gestiones se realiza de forma exclusiva a través de la aplicación WhatsApp.</p>
+            
+            <h4 class="text-white font-bold text-base border-b border-slate-900 pb-1 mt-6">3. Legitimación</h4>
+            <p>La base legal para el tratamiento de sus datos es el consentimiento expreso del interesado. Al iniciar una conversación mediante nuestro canal de WhatsApp para solicitar una reserva o información, el usuario consiente explícitamente el tratamiento de su número de teléfono y nombre de perfil para dicha finalidad.</p>
+            
+            <h4 class="text-white font-bold text-base border-b border-slate-900 pb-1 mt-6">4. Conservación de los Datos</h4>
+            <p>Los datos personales proporcionados se conservarán mientras se mantenga la relación comercial (es decir, hasta que se haga efectiva la reserva) y no se solicite su supresión por el interesado. Periódicamente, Estrop Bar Musical procederá a la eliminación de historiales de chat antiguos que ya no sean necesarios para la gestión del local. No utilizaremos su número para enviar publicidad masiva (spam) sin solicitar un consentimiento adicional específico.</p>
+            
+            <h4 class="text-white font-bold text-base border-b border-slate-900 pb-1 mt-6">5. Destinatarios</h4>
+            <p>Los datos no se cederán a terceros, salvo obligación legal. Cabe destacar que, al utilizar WhatsApp como medio de comunicación, el usuario también está sujeto a las políticas de privacidad de WhatsApp Ireland Limited (Meta).</p>
+            
+            <h4 class="text-white font-bold text-base border-b border-slate-900 pb-1 mt-6">6. Derechos del Usuario</h4>
+            <p>Cualquier persona tiene derecho a obtener confirmación sobre si en Estrop Bar Musical estamos tratando datos personales que les conciernan. Las personas interesadas tienen derecho a acceder a sus datos personales, así como a solicitar la rectificación de los datos inexactos o, en su caso, solicitar su supresión. Para ejercer estos derechos, puede enviar un correo electrónico a <a href="mailto:contacto@estrop.com" class="text-pink-400 hover:underline">contacto@estrop.com</a> indicando en el asunto "Protección de Datos".</p>
+          </div>
+        </div>
+        
+        <!-- Content: Terms of Booking -->
+        <div id="legal-terms" class="hidden space-y-6">
+          <div class="space-y-4">
+            <h4 class="text-white font-bold text-base border-b border-slate-900 pb-1">1. Proceso de Reserva</h4>
+            <p>Todas las solicitudes de reserva se gestionan a través de nuestro canal oficial de WhatsApp.</p>
+            <p>La reserva no se considerará confirmada hasta que el cliente reciba un mensaje de confirmación explícito por parte de nuestro equipo.</p>
+            <p>No se exige ningún pago anticipado a través de la página web para formalizar la reserva estándar. Todos los pagos de consumiciones se realizarán de forma presencial en el local.</p>
+            
+            <h4 class="text-white font-bold text-base border-b border-slate-900 pb-1 mt-6">2. Política de Retrasos y Cancelaciones</h4>
+            <p><strong>Cancelaciones:</strong> Rogamos a nuestros clientes que, en caso de no poder asistir, lo comuniquen a través de WhatsApp con la mayor antelación posible para facilitar la organización del local.</p>
+            
+            <h4 class="text-white font-bold text-base border-b border-slate-900 pb-1 mt-6">3. Derecho de Admisión y Acceso</h4>
+            <p><strong>Edad mínima:</strong> El acceso a Estrop Bar Musical está restringido a personas mayores de 18 años. El personal de puerta o barra podrá solicitar un documento de identidad físico (DNI, NIE o Pasaporte) para verificar la edad.</p>
+            <p><strong>Derecho de admisión:</strong> Estrop Bar Musical se reserva el derecho de admisión de acuerdo con la legislación vigente en Cataluña. No se permitirá el acceso a personas que manifiesten comportamientos violentos, que se encuentren bajo evidentes efectos del alcohol o estupefacientes, o que alteren el normal desarrollo de la actividad del local.</p>
+            <p><strong>Aforo:</strong> El acceso al local y a las salas reservadas está sujeto en todo momento a los límites de aforo legal establecidos.</p>
+            
+            <h4 class="text-white font-bold text-base border-b border-slate-900 pb-1 mt-6">4. Pagos y Consumiciones</h4>
+            <p>El pago de las bebidas, botellas o servicios consumidos se realizará íntegramente en las instalaciones de Estrop Bar Musical.</p>
+            <p>Se aceptan pagos en efectivo y con tarjeta de crédito/débito en el propio establecimiento.</p>
+            
+            <h4 class="text-white font-bold text-base border-b border-slate-900 pb-1 mt-6">5. Modificaciones</h4>
+            <p>Estrop Bar Musical se reserva el derecho a modificar las presentes condiciones en cualquier momento, siendo aplicables aquellas que estén publicadas en la página web en el momento de realizar la solicitud de reserva.</p>
+          </div>
+        </div>
+        
+      </div>
+    </div>
+  </div>
 </footer>
+
+<script>
+  const modal = document.getElementById('legal-modal');
+  const modalTitle = document.getElementById('legal-modal-title');
+  const closeBtn = document.getElementById('close-legal-modal');
+  const contentPrivacy = document.getElementById('legal-privacy');
+  const contentTerms = document.getElementById('legal-terms');
+
+  const openModal = (type: 'privacy' | 'terms') => {
+    if (!modal) return;
+    if (type === 'privacy') {
+      if (contentPrivacy) contentPrivacy.classList.remove('hidden');
+      if (contentTerms) contentTerms.classList.add('hidden');
+      if (modalTitle) modalTitle.textContent = 'Política de Privacidad';
+    } else {
+      if (contentPrivacy) contentPrivacy.classList.add('hidden');
+      if (contentTerms) contentTerms.classList.remove('hidden');
+      if (modalTitle) modalTitle.textContent = 'Condiciones de Reserva';
+    }
+    
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    setTimeout(() => {
+      modal.classList.remove('opacity-0');
+      modal.classList.add('opacity-100');
+    }, 10);
+    document.body.classList.add('overflow-hidden');
+  };
+
+  const closeModal = () => {
+    if (!modal) return;
+    modal.classList.remove('opacity-100');
+    modal.classList.add('opacity-0');
+    setTimeout(() => {
+      modal.classList.remove('flex');
+      modal.classList.add('hidden');
+    }, 300);
+    document.body.classList.remove('overflow-hidden');
+  };
+
+  const triggerTerms = document.getElementById('trigger-terms');
+  const triggerPrivacy = document.getElementById('trigger-privacy');
+
+  if (triggerTerms) {
+    triggerTerms.addEventListener('click', (e) => {
+      e.preventDefault();
+      openModal('terms');
+    });
+  }
+  if (triggerPrivacy) {
+    triggerPrivacy.addEventListener('click', (e) => {
+      e.preventDefault();
+      openModal('privacy');
+    });
+  }
+  if (closeBtn) {
+    closeBtn.addEventListener('click', closeModal);
+  }
+  if (modal) {
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeModal();
+    });
+  }
+  
+  // Close on Escape key press
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeModal();
+  });
+</script>
