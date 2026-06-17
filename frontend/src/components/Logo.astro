@@ -1,5 +1,7 @@
 ---
+import { Image } from 'astro:assets';
+import logoImg from '~/assets/images/logo-estrop.png';
 ---
-<span class="self-center ml-2 rtl:ml-0 rtl:mr-2 text-2xl md:text-3xl font-extrabold text-white whitespace-nowrap tracking-tighter drop-shadow-[0_0_10px_rgba(255,255,255,0.8)]">
-  ESTROP<span class="text-accent drop-shadow-[0_0_15px_rgba(236,72,153,0.8)]">44</span>
-</span>
+<div class="flex items-center">
+  <Image src={logoImg} alt="Estrop 44 Logo" class="h-10 w-auto md:h-12 object-contain" widths={[120, 240, 360]} sizes="(max-width: 768px) 120px, 240px" loading="eager" />
+</div>
