@@ -1,3 +1,4 @@
+import { WHATSAPP_NUMBER } from './config';
 import { getPermalink } from './utils/permalinks';
 
 export const headerData = {
@@ -22,7 +23,7 @@ export const headerData = {
   actions: [
     { 
       text: 'RESERVAR AHORA', 
-      href: 'https://wa.me/15556389717?text=Hola%2C%20quiero%20reservar%20en%20Estrop%2044', 
+      href: `https://wa.me/${WHATSAPP_NUMBER}?text=Hola%2C%20quiero%20reservar%20en%20Estrop%2044`, 
       target: '_blank',
       variant: 'primary',
       id: 'nav-whatsapp-btn',
