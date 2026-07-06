@@ -20,6 +20,7 @@ WHATSAPP_TOKEN = os.getenv("WHATSAPP_TOKEN")
 PHONE_NUMBER_ID = os.getenv("PHONE_NUMBER_ID")
 VERIFY_TOKEN = os.getenv("WHATSAPP_VERIFY_TOKEN", "estrop44cesar")
 OWNER_PHONE = os.getenv("OWNER_PHONE")
+OWNERS = [p.strip() for p in OWNER_PHONE.split(",") if p.strip()] if OWNER_PHONE else []
 GOOGLE_SHEET_URL = os.getenv("GOOGLE_SHEET_URL")
 
 ROOMS = {
@@ -121,7 +122,7 @@ async def send_confirmed_reservations(owner_phone: str):
 
 async def process(phone: str, text: str, interactive: dict = None):
     # Comandos especiales del dueño
-    if OWNER_PHONE and phone == OWNER_PHONE and text:
+    if OWNERS and phone in OWNERS and text:
         cleaned_text = text.lower().strip()
         if cleaned_text in ["reservas", "reserva", "ver reservas", "listado"]:
             await send_confirmed_reservations(phone)
@@ -258,11 +259,12 @@ async def process(phone: str, text: str, interactive: dict = None):
                 f"¿Deseas confirmar esta solicitud?"
             )
             
-            if OWNER_PHONE:
-                await send_buttons(OWNER_PHONE, owner_msg, [
-                    {"id": f"accept_{res_id}", "title": "Confirmar Reserva"},
-                    {"id": f"reject_{res_id}", "title": "Rechazar"}
-                ])
+            if OWNERS:
+                for owner in OWNERS:
+                    await send_buttons(owner, owner_msg, [
+                        {"id": f"accept_{res_id}", "title": "Confirmar Reserva"},
+                        {"id": f"reject_{res_id}", "title": "Rechazar"}
+                    ])
             else:
                 print(f"MOCK OWNER -> {OWNER_PHONE}: {owner_msg}")
                 
@@ -279,7 +281,7 @@ async def process_owner_response(owner_phone: str, btn_id: str):
     # Obtener detalles de la reserva desde Redis
     raw_res = redis.get(f"res:{res_id}")
     if not raw_res:
-        await send_text(owner_phone, f"⚠️ Error: No se encontró la reserva *{res_id}* o ya caducó.")
+        await send_text(owner_phone, f"⚠️ La reserva *{res_id}* ya ha sido procesada (confirmada o rechazada) por otro administrador.")
         return
         
     res_data = json.loads(raw_res)
@@ -355,7 +357,7 @@ async def webhook(request: Request):
             btn_id = interactive["button_reply"]["id"]
             if btn_id.startswith("accept_") or btn_id.startswith("reject_"):
                 # Si está configurado OWNER_PHONE, verificar remitente
-                if not OWNER_PHONE or phone == OWNER_PHONE:
+                if not OWNERS or phone in OWNERS:
                     await process_owner_response(phone, btn_id)
                     return {"status": "ok"}
         
