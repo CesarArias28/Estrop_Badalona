@@ -1,70 +1,46 @@
 ---
-const BEHOLD_URL = 'https://feeds.behold.so/rupiMaigrIrum6IUj3BG';
-
-let feed = [];
-
-try {
-  const response = await fetch(BEHOLD_URL);
-  if (response.ok) {
-    const rawData = await response.json();
-    if (rawData && Array.isArray(rawData.posts)) {
-      feed = rawData.posts.map((post: any) => ({
-        id: post.id,
-        mediaType: post.mediaType,
-        mediaUrl: post.mediaUrl,
-        thumbnailUrl: post.thumbnailUrl || post.mediaUrl,
-        permalink: post.permalink
-      }));
-    }
+// LiveFromEstrop.astro - Renderizado del Feed de Instagram (Client-side)
+const feed = [
+  {
+    id: "1",
+    mediaType: "VIDEO",
+    mediaUrl: "/ig/reel1.mp4",
+    thumbnailUrl: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=800&auto=format&fit=crop",
+    permalink: "https://www.instagram.com/estropbadalona/?hl=es"
+  },
+  {
+    id: "2",
+    mediaType: "VIDEO",
+    mediaUrl: "/ig/reel2.mp4",
+    thumbnailUrl: "https://images.unsplash.com/photo-1566737236500-c8ac43014a67?q=80&w=800&auto=format&fit=crop",
+    permalink: "https://www.instagram.com/estropbadalona/?hl=es"
+  },
+  {
+    id: "3",
+    mediaType: "VIDEO",
+    mediaUrl: "/ig/reel3.mp4",
+    thumbnailUrl: "https://images.unsplash.com/photo-1545128485-c400e7702796?q=80&w=800&auto=format&fit=crop",
+    permalink: "https://www.instagram.com/estropbadalona/?hl=es"
+  },
+  {
+    id: "4",
+    mediaType: "IMAGE",
+    mediaUrl: "https://images.unsplash.com/photo-1572561300743-2dd367ed0c9a?q=80&w=800&auto=format&fit=crop",
+    permalink: "https://www.instagram.com/estropbadalona/?hl=es"
+  },
+  {
+    id: "5",
+    mediaType: "IMAGE",
+    mediaUrl: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?q=80&w=800&auto=format&fit=crop",
+    permalink: "https://www.instagram.com/estropbadalona/?hl=es"
+  },
+  {
+    id: "6",
+    mediaType: "IMAGE",
+    mediaUrl: "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?q=80&w=800&auto=format&fit=crop",
+    permalink: "https://www.instagram.com/estropbadalona/?hl=es"
   }
-} catch (e) {
-  console.error("Error fetching Behold feed:", e);
-}
-
-// Fallback a los Reels de prueba si la API no está configurada, falla o no tiene posts
-if (!feed || feed.length === 0) {
-  feed = [
-    {
-      id: "1",
-      mediaType: "VIDEO",
-      mediaUrl: "/ig/reel1.mp4",
-      thumbnailUrl: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?q=80&w=800&auto=format&fit=crop",
-      permalink: "https://www.instagram.com/estropbadalona/?hl=es"
-    },
-    {
-      id: "2",
-      mediaType: "VIDEO",
-      mediaUrl: "/ig/reel2.mp4",
-      thumbnailUrl: "https://images.unsplash.com/photo-1566737236500-c8ac43014a67?q=80&w=800&auto=format&fit=crop",
-      permalink: "https://www.instagram.com/estropbadalona/?hl=es"
-    },
-    {
-      id: "3",
-      mediaType: "VIDEO",
-      mediaUrl: "/ig/reel3.mp4",
-      thumbnailUrl: "https://images.unsplash.com/photo-1545128485-c400e7702796?q=80&w=800&auto=format&fit=crop",
-      permalink: "https://www.instagram.com/estropbadalona/?hl=es"
-    },
-    {
-      id: "4",
-      mediaType: "IMAGE",
-      mediaUrl: "https://images.unsplash.com/photo-1572561300743-2dd367ed0c9a?q=80&w=800&auto=format&fit=crop",
-      permalink: "https://www.instagram.com/estropbadalona/?hl=es"
-    },
-    {
-      id: "5",
-      mediaType: "IMAGE",
-      mediaUrl: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?q=80&w=800&auto=format&fit=crop",
-      permalink: "https://www.instagram.com/estropbadalona/?hl=es"
-    },
-    {
-      id: "6",
-      mediaType: "IMAGE",
-      mediaUrl: "https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?q=80&w=800&auto=format&fit=crop",
-      permalink: "https://www.instagram.com/estropbadalona/?hl=es"
-    }
-  ];
-}
+];
 ---
 
 <div id="social" class="max-w-7xl mx-auto px-4 sm:px-6 py-20 relative">
@@ -74,7 +50,7 @@ if (!feed || feed.length === 0) {
   </div>
 
   <!-- Carousel View (Todas las pantallas) -->
-  <swiper-container class="w-full" slides-per-view="1" breakpoints='{"640": {"slidesPerView": 2}, "1024": {"slidesPerView": 4}}' space-between="24" loop="true" autoplay-delay="3000">
+  <swiper-container id="instagram-swiper" class="w-full" slides-per-view="1" breakpoints='{"640": {"slidesPerView": 2}, "1024": {"slidesPerView": 4}}' space-between="24" loop="true" autoplay-delay="3000">
     {feed.map((post) => (
       <swiper-slide>
         <div 
@@ -126,9 +102,112 @@ if (!feed || feed.length === 0) {
   import { register } from 'swiper/element/bundle';
   register();
 
-  // Script del Lightbox para reproducir en la misma página
+  const BEHOLD_URL = 'https://feeds.behold.so/rupiMaigrIrum6IUj3BG';
+
   document.addEventListener('DOMContentLoaded', () => {
-    const triggers = document.querySelectorAll('.media-trigger');
+    // 1. Cargar el feed de Instagram dinámicamente desde el cliente
+    fetch(BEHOLD_URL)
+      .then(response => {
+        if (!response.ok) throw new Error('Error al consultar el feed de Behold');
+        return response.json();
+      })
+      .then(data => {
+        if (data && Array.isArray(data.posts) && data.posts.length > 0) {
+          const swiperEl = document.getElementById('instagram-swiper');
+          if (swiperEl) {
+            // Vaciamos los mocks
+            swiperEl.innerHTML = '';
+
+            // Inyectamos las publicaciones reales
+            data.posts.forEach((post: any) => {
+              const slide = document.createElement('swiper-slide');
+              slide.innerHTML = `
+                <div 
+                  class="group relative rounded-3xl overflow-hidden aspect-[4/5] bg-slate-900 border border-slate-800 cursor-pointer media-trigger shadow-lg"
+                  data-type="${post.mediaType}"
+                  data-url="${post.mediaUrl}"
+                >
+                  ${post.mediaType === 'VIDEO' ? 
+                    `<video src="${post.mediaUrl}" poster="${post.thumbnailUrl || post.mediaUrl}" class="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" autoplay muted loop playsinline loading="lazy"></video>` :
+                    `<img src="${post.mediaUrl}" alt="Instagram Post" class="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" loading="lazy" />`
+                  }
+                  
+                  <!-- Overlay de interacción -->
+                  <div class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center gap-4">
+                    <div class="p-4 bg-primary/90 text-white rounded-full shadow-[0_0_15px_rgba(168,85,247,0.5)] transform scale-75 group-hover:scale-100 transition-transform duration-300">
+                      ${post.mediaType === 'VIDEO' ? 
+                        `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>` :
+                        `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"></path><path d="M9 21H3v-6"></path><path d="M21 3l-7 7"></path><path d="M3 21l7-7"></path></svg>`
+                      }
+                    </div>
+                    <span class="text-white font-bold tracking-widest uppercase text-sm">Ver ahora</span>
+                  </div>
+
+                  <!-- Badges -->
+                  ${post.mediaType === 'VIDEO' ? `
+                    <div class="absolute bottom-4 left-4 pointer-events-none">
+                       <span class="px-3 py-1 bg-accent/90 text-white text-xs font-bold rounded-full backdrop-blur-sm shadow-md">REEL</span>
+                    </div>` : ''
+                  }
+                </div>
+              `;
+              swiperEl.appendChild(slide);
+            });
+
+            // Re-vincular los eventos de clic del Lightbox a los nuevos elementos
+            attachLightboxTriggers();
+
+            // Forzar actualización del slider de Swiper
+            // @ts-ignore
+            if (swiperEl.swiper) {
+              // @ts-ignore
+              swiperEl.swiper.update();
+            }
+          }
+        }
+      })
+      .catch(err => {
+        console.warn('No se pudo cargar el feed en vivo de Instagram. Usando reels locales de fallback.', err);
+      });
+
+    // 2. Lógica del Lightbox para reproducir
+    function attachLightboxTriggers() {
+      const triggers = document.querySelectorAll('.media-trigger');
+      const modal = document.getElementById('instagram-modal');
+      const modalContent = document.getElementById('modal-content');
+
+      triggers.forEach(trigger => {
+        // Evitamos duplicar event listeners
+        // @ts-ignore
+        if (trigger.dataset.hasListener) return;
+        // @ts-ignore
+        trigger.dataset.hasListener = "true";
+
+        trigger.addEventListener('click', () => {
+          const type = trigger.getAttribute('data-type');
+          const url = trigger.getAttribute('data-url');
+          
+          if (modal && modalContent) {
+            modalContent.innerHTML = '';
+            
+            if (type === 'VIDEO') {
+              modalContent.innerHTML = `<video src="${url}" class="w-full h-full object-contain bg-black max-h-[85vh]" controls autoplay playsinline></video>`;
+            } else {
+              modalContent.innerHTML = `<img src="${url}" class="w-full h-full object-contain bg-black max-h-[85vh]" />`;
+            }
+            
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            
+            setTimeout(() => {
+               modal.classList.remove('opacity-0');
+               modal.classList.add('opacity-100');
+            }, 10);
+          }
+        });
+      });
+    }
+
     const modal = document.getElementById('instagram-modal');
     const modalContent = document.getElementById('modal-content');
     const closeModalBtn = document.getElementById('close-modal');
@@ -140,48 +219,20 @@ if (!feed || feed.length === 0) {
         setTimeout(() => {
           modal.classList.remove('flex');
           modal.classList.add('hidden');
-          // Vaciamos el contenedor para apagar el audio del video
           if (modalContent) modalContent.innerHTML = '';
         }, 300);
       }
     };
 
-    triggers.forEach(trigger => {
-      trigger.addEventListener('click', () => {
-        const type = trigger.getAttribute('data-type');
-        const url = trigger.getAttribute('data-url');
-        
-        if (modal && modalContent) {
-          modalContent.innerHTML = '';
-          
-          if (type === 'VIDEO') {
-            // Añadimos 'controls', 'autoplay' sin 'muted' para que se escuche al abrir
-            modalContent.innerHTML = `<video src="${url}" class="w-full h-full object-contain bg-black max-h-[85vh]" controls autoplay playsinline></video>`;
-          } else {
-            modalContent.innerHTML = `<img src="${url}" class="w-full h-full object-contain bg-black max-h-[85vh]" />`;
-          }
-          
-          modal.classList.remove('hidden');
-          modal.classList.add('flex');
-          
-          // Retraso minúsculo para permitir la transición CSS
-          setTimeout(() => {
-             modal.classList.remove('opacity-0');
-             modal.classList.add('opacity-100');
-          }, 10);
-        }
-      });
-    });
-
-    if (closeModalBtn) {
-      closeModalBtn.addEventListener('click', closeModal);
-    }
-    
-    // Cerrar al hacer clic fuera del contenido
+    if (closeModalBtn) closeModalBtn.addEventListener('click', closeModal);
     if (modal) {
       modal.addEventListener('click', (e) => {
         if (e.target === modal) closeModal();
       });
     }
+
+    // Inicializar triggers para los mocks de fallback
+    attachLightboxTriggers();
   });
 </script>
+
