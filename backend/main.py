@@ -24,15 +24,15 @@ OWNERS = [p.strip() for p in OWNER_PHONE.split(",") if p.strip()] if OWNER_PHONE
 GOOGLE_SHEET_URL = os.getenv("GOOGLE_SHEET_URL")
 
 ROOMS = {
-    "sala1": {"name": "Sala 1", "min_spend": 300, "options": {
-        "s1_12": {"title": "2 Consumiciones (12€)", "price": 12},
-        "s1_22": {"title": "Libre Vi/Cerv (22€)", "price": 22},
-        "s1_32": {"title": "Libre Combinados(32€)", "price": 32}
+    "sala1": {"name": "Sala 1 (Planta Baja)", "min_spend": 300, "options": {
+        "s1_12": {"title": "2 Consumiciones (12€)", "price": 12, "description": "2 consumiciones en barra"},
+        "s1_22": {"title": "Barra Libre (22€)", "price": 22, "description": "Vino, cerveza, cava, refrescos y agua ilimitados"},
+        "s1_32": {"title": "Libre Combinados (32€)", "price": 32, "description": "Vino, cerveza, cava, refrescos, agua y combinados ilimitados"}
     }},
-    "sala2": {"name": "Sala 2", "min_spend": 500, "options": {
-        "s2_15": {"title": "2 Consumiciones (15€)", "price": 15},
-        "s2_25": {"title": "Libre Vi/Cerv (25€)", "price": 25},
-        "s2_35": {"title": "Libre Combinados(35€)", "price": 35}
+    "sala2": {"name": "Sala 2 (Planta Superior)", "min_spend": 500, "options": {
+        "s2_15": {"title": "2 Consumiciones (15€)", "price": 15, "description": "2 consumiciones en barra"},
+        "s2_25": {"title": "Barra Libre (25€)", "price": 25, "description": "Vino, cerveza, cava, refrescos y agua ilimitados"},
+        "s2_35": {"title": "Libre Combinados (35€)", "price": 35, "description": "Vino, cerveza, cava, refrescos, agua y combinados ilimitados"}
     }}
 }
 
@@ -171,7 +171,16 @@ async def process(phone: str, text: str, interactive: dict = None):
         state = "START"
 
     if state == "START":
-        await send_text(phone, "¡Hola! 👋 Soy el asistente de *Estrop*. Vamos a gestionar tu reserva. 🥳\n\n¿Para cuántas personas buscas sala? Escribe solo el número.")
+        start_msg = (
+            "¡Hola! 👋 Soy el asistente virtual de *Estrop Bar Musical*. "
+            "Te ayudaré a tomar los datos iniciales de tu reserva de forma rápida. 🤖\n\n"
+            "📸 Si aún no conoces nuestras instalaciones o quieres ver fotos y vídeos de las salas, puedes visitar nuestra web:\n"
+            "🌐 https://estropbadalona.com\n\n"
+            "👥 ¿Para cuántas personas buscas reserva aproximadamente? "
+            "(El número es *orientativo* y se podrá ajustar después).\n\n"
+            "Escribe solo el número (ejemplo: 12):"
+        )
+        await send_text(phone, start_msg)
         save_state(phone, {"state": "WAITING_PEOPLE", "data": {}})
 
     elif state == "WAITING_PEOPLE":
@@ -179,16 +188,27 @@ async def process(phone: str, text: str, interactive: dict = None):
             await send_text(phone, "Por favor, escribe solo el número (ejemplo: 12).")
             return
         data["people"] = int(text.strip())
-        await send_text(phone, "¿Para qué día y hora quieres reservar?\n\nEjemplo: *Sábado 25/05 a las 19:30*")
+        date_msg = (
+            "¿Para qué día y hora quieres reservar aproximadamente? "
+            "(También se podrá modificar si lo necesitas).\n\n"
+            "Ejemplo: *Sábado 25/10 a las 19:30*"
+        )
+        await send_text(phone, date_msg)
         save_state(phone, {"state": "WAITING_DATE", "data": data})
 
     elif state == "WAITING_DATE":
         data["date"] = text.strip()
         sections = [{"title": r["name"][:24], "rows": [
-            {"id": oid, "title": o["title"][:24], "description": f"{o['price']}€/pers"}
+            {"id": oid, "title": o["title"][:24], "description": o.get("description", f"{o['price']}€/pers")[:72]}
             for oid, o in r["options"].items()
         ]} for r in ROOMS.values()]
-        await send_list(phone, f"Perfecto, {data['people']} personas el {data['date']}.\n\nElige sala y tipo de acceso:", sections)
+        
+        list_body = (
+            f"Perfecto, ~{data['people']} personas el {data['date']}.\n\n"
+            "💡 Ten en cuenta que las salas y ofertas son *modificables pero sujetas a disponibilidad*.\n\n"
+            "Pulsa el botón desplegable para elegir sala y tipo de acceso:"
+        )
+        await send_list(phone, list_body, sections)
         save_state(phone, {"state": "WAITING_ROOM", "data": data})
 
     elif state == "WAITING_ROOM":
@@ -202,21 +222,24 @@ async def process(phone: str, text: str, interactive: dict = None):
         data.update({"room_name": room["name"], "option_title": opt["title"],
                      "total": opt["price"] * data["people"], "min_spend": room["min_spend"]})
         msg = (f"Has elegido *{room['name']}* — *{opt['title']}*\n\n"
-               f"👥 {data['people']} personas → Total tickets: *{data['total']}€*\n"
-               f"⚠️ Consumo mínimo: *{room['min_spend']}€*\n\n"
-               "📌 Horario: 18:30–23:00h. A las 23h abrimos al público pero la fiesta sigue 🕺\n"
+               f"👥 ~{data['people']} personas (aprox.) → Total estimado: *{data['total']}€*\n"
+               f"⚠️ Consumo mínimo de la sala: *{room['min_spend']}€*\n\n"
+               "💡 *Recordatorio:* Esta propuesta es modificable (sujeta a disponibilidad).\n"
+               "📌 Horario de sala privada: 18:30–23:00h (a las 23h abrimos al público pero la fiesta sigue 🕺).\n"
                "🚫 No se permite bebida del exterior.\n\n"
-               "¿Tienes alguna petición especial (cumpleaños, decoración...)? Escríbela o di *Ninguna*.")
+               "¿Tienes alguna petición especial (cumpleaños, decoración, dudas...)? Escríbela o di *Ninguna*.")
         await send_text(phone, msg)
         save_state(phone, {"state": "WAITING_NOTES", "data": data})
 
     elif state == "WAITING_NOTES":
         data["notes"] = text.strip()
-        summary = (f"Revisa tu solicitud:\n\n"
-                   f"👥 Personas: {data['people']}\n"
+        summary = (f"Revisa tu solicitud orientativa:\n\n"
+                   f"👥 Personas: {data['people']} (orientativo)\n"
                    f"📅 Fecha: {data['date']}\n"
                    f"📍 Sala: {data['room_name']} — {data['option_title']}\n"
-                   f"📝 Notas: {data['notes']}\n\n¿Confirmamos?")
+                   f"📝 Notas: {data['notes']}\n\n"
+                   "👤 *Atención personalizada:* Al enviar la solicitud, tu reserva pasará a ser gestionada de forma personalizada por una persona real de nuestro equipo.\n\n"
+                   "¿Enviamos la solicitud?")
         await send_buttons(phone, summary, [
             {"id": "confirm", "title": "Confirmar Reserva"},
             {"id": "edit", "title": "Editar"}
@@ -251,10 +274,10 @@ async def process(phone: str, text: str, interactive: dict = None):
             owner_msg = (
                 f"🔔 *NUEVA SOLICITUD DE RESERVA ({res_id})*\n\n"
                 f"👤 *Cliente:* +{phone}\n"
-                f"👥 *Personas:* {res_data['people']}\n"
+                f"👥 *Personas:* {res_data['people']} (aprox.)\n"
                 f"📅 *Fecha:* {res_data['date']}\n"
                 f"📍 *Sala:* {res_data['room_name']} — {res_data['option_title']}\n"
-                f"💰 *Total:* {res_data['total']}€ (Consumo Mínimo: {res_data['min_spend']}€)\n"
+                f"💰 *Total estimado:* {res_data['total']}€ (Consumo Mínimo: {res_data['min_spend']}€)\n"
                 f"📝 *Notas:* {res_data['notes']}\n\n"
                 f"¿Deseas confirmar esta solicitud?"
             )
@@ -268,9 +291,17 @@ async def process(phone: str, text: str, interactive: dict = None):
             else:
                 print(f"MOCK OWNER -> {OWNER_PHONE}: {owner_msg}")
                 
-            # Limpiar estado del cliente e informarles del envío
+            # Limpiar estado del cliente e informarles del envío + enlace directo al teléfono del dueño
             clear_state(phone)
-            await send_text(phone, "✅ *¡Solicitud enviada!*\n\nEl equipo de Estrop te confirmará la reserva por este chat en breve. ¡Gracias! 🎉")
+            client_final_msg = (
+                "✅ *¡Solicitud enviada con éxito!* 🎉\n\n"
+                "👤 Tu reserva ha sido asignada a nuestro equipo para atención personalizada. "
+                "A partir de este momento estás en contacto directo con una persona real.\n\n"
+                "📞 Si quieres hablar directamente con el encargado o consultarle cualquier cosa por WhatsApp, puedes escribirle aquí:\n"
+                "👉 https://wa.me/34626599664\n\n"
+                "¡Te responderemos lo antes posible para confirmar todos los detalles!"
+            )
+            await send_text(phone, client_final_msg)
 
 async def process_owner_response(owner_phone: str, btn_id: str):
     # Descomponer acción e ID de la reserva
