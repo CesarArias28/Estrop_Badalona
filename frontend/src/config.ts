@@ -3,7 +3,7 @@
 export const WHATSAPP_NUMBER_OLD = "34626599664";
 
 // The number for the automated bot system
-export const WHATSAPP_NUMBER_BOT = "34609550930";
+export const WHATSAPP_NUMBER_BOT = "34631557670";
 
 // Switch automatically or override to activate bot immediately
 const useBot = true;
