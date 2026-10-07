@@ -1,12 +1,14 @@
 import os
 import json
 import uuid
+from datetime import datetime
 import httpx
 from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, HTMLResponse, JSONResponse
 from upstash_redis import Redis
 from dotenv import load_dotenv
 
+load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 load_dotenv()
 
 app = FastAPI(title="Estrop WhatsApp Bot API")
@@ -22,6 +24,7 @@ VERIFY_TOKEN = os.getenv("WHATSAPP_VERIFY_TOKEN", "estrop44cesar")
 OWNER_PHONE = os.getenv("OWNER_PHONE")
 OWNERS = [p.strip() for p in OWNER_PHONE.split(",") if p.strip()] if OWNER_PHONE else []
 GOOGLE_SHEET_URL = os.getenv("GOOGLE_SHEET_URL")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "estrop2026")
 
 ROOMS = {
     "sala1": {"name": "Sala 1 (Planta Baja)", "min_spend": 300, "options": {
@@ -48,7 +51,41 @@ def save_state(phone: str, state: dict):
 def clear_state(phone: str):
     redis.delete(f"state:{phone}")
 
+def extract_body(data: dict) -> str:
+    if data.get("type") == "text":
+        return data.get("text", {}).get("body", "")
+    elif data.get("type") == "interactive":
+        inter = data.get("interactive", {})
+        body = inter.get("body", {}).get("text", "")
+        if inter.get("type") == "button":
+            btns = [b.get("reply", {}).get("title", "") for b in inter.get("action", {}).get("buttons", [])]
+            if btns:
+                body += f"\n[Botones: {' | '.join(btns)}]"
+        elif inter.get("type") == "list":
+            body += "\n[Menú de salas y precios]"
+        return body
+    return ""
+
+def log_chat_message(phone: str, sender: str, text: str):
+    if not phone or not text:
+        return
+    try:
+        redis.sadd("bot_clients", phone)
+        now_str = datetime.now().strftime("%d/%m/%Y %H:%M")
+        msg_obj = json.dumps({"sender": sender, "text": text, "time": now_str})
+        redis.rpush(f"chat:{phone}", msg_obj)
+        redis.ltrim(f"chat:{phone}", -60, -1)
+        redis.expire(f"chat:{phone}", 2592000)
+        redis.set(f"last_activity:{phone}", now_str)
+    except Exception as e:
+        print(f"Error logging chat: {e}")
+
 async def send_wa(to: str, data: dict):
+    # Registrar en el historial si es para un cliente
+    text_content = extract_body(data)
+    if text_content and (not OWNERS or to not in OWNERS):
+        log_chat_message(to, "bot", text_content)
+
     if not WHATSAPP_TOKEN or not PHONE_NUMBER_ID:
         print(f"MOCK -> {to}: {data}")
         return
@@ -383,6 +420,17 @@ async def webhook(request: Request):
         text = msg["text"]["body"] if msg.get("type") == "text" else ""
         interactive = msg.get("interactive") if msg.get("type") == "interactive" else None
         
+        # Registrar mensaje entrante del cliente en el historial si no es del dueño
+        client_msg_text = text
+        if not client_msg_text and interactive:
+            if interactive.get("type") == "button_reply":
+                client_msg_text = f"[Botón]: {interactive.get('button_reply', {}).get('title', '')}"
+            elif interactive.get("type") == "list_reply":
+                client_msg_text = f"[Opción]: {interactive.get('list_reply', {}).get('title', '')}"
+        
+        if client_msg_text and (not OWNERS or phone not in OWNERS):
+            log_chat_message(phone, "client", client_msg_text)
+
         # Si es una respuesta de botón y proviene del dueño, procesar aprobación
         if interactive and interactive.get("type") == "button_reply":
             btn_id = interactive["button_reply"]["id"]
@@ -396,3 +444,540 @@ async def webhook(request: Request):
     except Exception as e:
         print(f"Error: {e}")
     return {"status": "ok"}
+
+@app.get("/api/admin/data")
+def get_admin_data(key: str = ""):
+    if key != ADMIN_PASSWORD:
+        raise HTTPException(status_code=401, detail="Contraseña incorrecta")
+    
+    # Obtener todos los teléfonos registrados
+    client_set = set()
+    raw_members = redis.smembers("bot_clients")
+    if raw_members:
+        client_set.update(raw_members)
+    
+    # También escanear claves de estado
+    state_keys = redis.keys("state:*") or []
+    for sk in state_keys:
+        p = sk.split(":")[1]
+        if not OWNERS or p not in OWNERS:
+            client_set.add(p)
+            
+    # Reservas confirmadas
+    conf_keys = redis.keys("conf:*") or []
+    confirmed_list = []
+    for ck in conf_keys:
+        raw = redis.get(ck)
+        if raw:
+            try:
+                data = json.loads(raw)
+                data["id"] = ck.split(":")[1]
+                confirmed_list.append(data)
+                if data.get("client_phone"):
+                    client_set.add(data["client_phone"])
+            except Exception:
+                pass
+
+    # Solicitudes pendientes
+    res_keys = redis.keys("res:*") or []
+    pending_list = []
+    for rk in res_keys:
+        raw = redis.get(rk)
+        if raw:
+            try:
+                data = json.loads(raw)
+                data["id"] = rk.split(":")[1]
+                pending_list.append(data)
+                if data.get("client_phone"):
+                    client_set.add(data["client_phone"])
+            except Exception:
+                pass
+
+    clients_data = []
+    for cp in client_set:
+        st = get_state(cp)
+        last_act = redis.get(f"last_activity:{cp}") or "Reciente"
+        
+        # Historial de mensajes
+        raw_msgs = redis.lrange(f"chat:{cp}", 0, -1) or []
+        history = []
+        for rm in raw_msgs:
+            try:
+                history.append(json.loads(rm))
+            except Exception:
+                pass
+                
+        clients_data.append({
+            "phone": cp,
+            "state": st.get("state", "START"),
+            "data": st.get("data", {}),
+            "last_activity": last_act,
+            "history": history
+        })
+
+    clients_data.sort(key=lambda x: len(x["history"]), reverse=True)
+
+    return {
+        "clients": clients_data,
+        "confirmed": confirmed_list,
+        "pending": pending_list
+    }
+
+@app.post("/api/admin/action")
+async def admin_action(request: Request):
+    body = await request.json()
+    key = body.get("key")
+    if key != ADMIN_PASSWORD:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    
+    action = body.get("action")
+    res_id = body.get("id")
+    
+    if action == "cancel":
+        raw = redis.get(f"conf:{res_id}")
+        if raw:
+            res_data = json.loads(raw)
+            client_phone = res_data.get("client_phone")
+            redis.delete(f"conf:{res_id}")
+            if client_phone:
+                await send_text(client_phone, f"Hola. Te informamos que tu reserva con código *{res_id}* para el {res_data.get('date')} ha sido cancelada por el equipo de Estrop.")
+            await sync_to_google_sheets({"action": "cancel", "res_id": res_id})
+            return {"status": "ok", "message": f"Reserva {res_id} cancelada"}
+    elif action in ["accept", "reject"]:
+        btn_id = f"{action}_{res_id}"
+        await process_owner_response(OWNERS[0] if OWNERS else "admin", btn_id)
+        return {"status": "ok", "message": f"Solicitud {res_id} procesada como {action}"}
+        
+    return {"status": "error", "message": "Acción no reconocida"}
+
+@app.get("/admin", response_class=HTMLResponse)
+def admin_page():
+    html_content = """<!DOCTYPE html>
+<html lang="es" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Estrop 44 - Panel de Control & Chats</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: { gold: '#eab308', dark: '#0b0f19', card: '#161e2e', border: '#253248' }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { background-color: #0b0f19; color: #f3f4f6; font-family: ui-sans-serif, system-ui, sans-serif; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0b0f19; }
+    ::-webkit-scrollbar-thumb { background: #253248; border-radius: 4px; }
+    .chat-bubble-client { background-color: #065f46; border-radius: 14px 14px 2px 14px; }
+    .chat-bubble-bot { background-color: #1f2937; border-radius: 14px 14px 14px 2px; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+  <!-- LOGIN OVERLAY -->
+  <div id="login-modal" class="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4">
+    <div class="bg-brand-card border border-brand-border rounded-2xl p-8 max-w-md w-full shadow-2xl text-center">
+      <div class="inline-flex p-4 rounded-full bg-yellow-500/10 text-yellow-400 mb-4 text-3xl">
+        <i class="fa-solid fa-lock"></i>
+      </div>
+      <h2 class="text-2xl font-bold text-white mb-2">Panel de Control Estrop</h2>
+      <p class="text-sm text-gray-400 mb-6">Introduce la clave de acceso del administrador</p>
+      <input type="password" id="admin-pass" placeholder="Contraseña..." class="w-full bg-brand-dark border border-brand-border rounded-xl px-4 py-3 text-white mb-4 focus:outline-none focus:border-yellow-400 text-center text-lg">
+      <button onclick="login()" class="w-full bg-yellow-500 hover:bg-yellow-400 text-black font-bold py-3 rounded-xl transition duration-200">
+        Entrar al Panel
+      </button>
+      <p id="login-error" class="text-red-400 text-sm mt-3 hidden">Contraseña incorrecta</p>
+    </div>
+  </div>
+
+  <!-- MAIN APP -->
+  <div id="app" class="flex-1 flex flex-col hidden">
+    <!-- NAVBAR -->
+    <header class="bg-brand-card/90 border-b border-brand-border px-6 py-4 flex flex-wrap items-center justify-between gap-4 sticky top-0 z-20 backdrop-blur-md">
+      <div class="flex items-center gap-3">
+        <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-yellow-600 to-yellow-400 flex items-center justify-center font-black text-black text-xl shadow-lg shadow-yellow-500/20">
+          E44
+        </div>
+        <div>
+          <h1 class="font-black text-lg text-white tracking-wider">ESTROP 44</h1>
+          <p class="text-xs text-green-400 flex items-center gap-1.5">
+            <span class="h-2 w-2 rounded-full bg-green-400 animate-pulse"></span> Bot en línea (+34 631 55 76 70)
+          </p>
+        </div>
+      </div>
+
+      <!-- TABS -->
+      <div class="flex items-center bg-brand-dark p-1 rounded-xl border border-brand-border">
+        <button onclick="switchTab('chats')" id="tab-btn-chats" class="tab-btn px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition bg-yellow-500 text-black">
+          <i class="fa-solid fa-comments"></i> Conversaciones
+          <span id="badge-chats" class="bg-black/20 text-xs px-2 py-0.5 rounded-full font-bold">0</span>
+        </button>
+        <button onclick="switchTab('confirmed')" id="tab-btn-confirmed" class="tab-btn px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition text-gray-400 hover:text-white">
+          <i class="fa-solid fa-calendar-check"></i> Reservas
+          <span id="badge-confirmed" class="bg-brand-border text-xs px-2 py-0.5 rounded-full font-bold">0</span>
+        </button>
+        <button onclick="switchTab('pending')" id="tab-btn-pending" class="tab-btn px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition text-gray-400 hover:text-white">
+          <i class="fa-solid fa-bell"></i> Pendientes
+          <span id="badge-pending" class="bg-brand-border text-xs px-2 py-0.5 rounded-full font-bold">0</span>
+        </button>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button onclick="loadData()" class="px-3 py-2 rounded-lg bg-brand-border hover:bg-gray-700 text-sm font-medium flex items-center gap-2 transition">
+          <i class="fa-solid fa-rotate-right"></i> <span class="hidden sm:inline">Actualizar</span>
+        </button>
+        <button onclick="logout()" class="px-3 py-2 rounded-lg bg-red-950 hover:bg-red-900 text-red-300 text-sm font-medium transition">
+          <i class="fa-solid fa-arrow-right-from-bracket"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- CONTENT -->
+    <main class="flex-1 flex overflow-hidden">
+      <!-- TAB 1: CHATS -->
+      <section id="tab-chats" class="tab-content flex-1 flex w-full">
+        <!-- CLIENTS LIST -->
+        <div class="w-full md:w-80 lg:w-96 border-r border-brand-border flex flex-col bg-brand-dark/50">
+          <div class="p-3 border-b border-brand-border">
+            <input type="text" id="client-search" oninput="filterClients()" placeholder="Buscar por teléfono..." class="w-full bg-brand-card border border-brand-border rounded-xl px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-yellow-400">
+          </div>
+          <div id="clients-list" class="flex-1 overflow-y-auto divide-y divide-brand-border/40">
+            <!-- Dynamic clients -->
+          </div>
+        </div>
+
+        <!-- CHAT DETAIL -->
+        <div id="chat-detail" class="hidden md:flex flex-1 flex-col bg-brand-dark">
+          <div id="chat-empty" class="flex-1 flex items-center justify-center text-center p-8 text-gray-500">
+            <div>
+              <i class="fa-solid fa-message text-5xl mb-4 opacity-40"></i>
+              <p class="text-lg">Selecciona un cliente de la lista para ver su conversación</p>
+            </div>
+          </div>
+          <div id="chat-view" class="flex-1 flex flex-col hidden h-full">
+            <!-- HEADER -->
+            <div class="p-4 bg-brand-card border-b border-brand-border flex flex-wrap items-center justify-between gap-4">
+              <div class="flex items-center gap-3">
+                <div class="h-10 w-10 rounded-full bg-green-600/30 text-green-400 flex items-center justify-center font-bold text-lg">
+                  <i class="fa-solid fa-user"></i>
+                </div>
+                <div>
+                  <h3 id="chat-client-phone" class="font-bold text-lg text-white"></h3>
+                  <p id="chat-client-status" class="text-xs text-yellow-400 font-medium"></p>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <a id="chat-wa-direct-link" href="#" target="_blank" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg shadow-emerald-600/20 transition">
+                  <i class="fa-brands fa-whatsapp text-sm"></i> Chatear en WhatsApp
+                </a>
+              </div>
+            </div>
+
+            <!-- RESERVATION SUMMARY BAR -->
+            <div id="chat-data-banner" class="bg-brand-card/60 border-b border-brand-border px-4 py-3 flex flex-wrap gap-4 text-xs text-gray-300"></div>
+
+            <!-- MESSAGES CONTAINER -->
+            <div id="chat-messages" class="flex-1 p-6 overflow-y-auto space-y-4"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 2: CONFIRMED RESERVATIONS -->
+      <section id="tab-confirmed" class="tab-content flex-1 p-6 overflow-y-auto hidden">
+        <div class="max-w-6xl mx-auto">
+          <div class="flex items-center justify-between mb-6">
+            <h2 class="text-xl font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-calendar-check text-yellow-400"></i> Reservas Confirmadas
+            </h2>
+            <span class="text-xs text-gray-400">Próximos 30 días</span>
+          </div>
+          <div id="confirmed-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+        </div>
+      </section>
+
+      <!-- TAB 3: PENDING REQUESTS -->
+      <section id="tab-pending" class="tab-content flex-1 p-6 overflow-y-auto hidden">
+        <div class="max-w-6xl mx-auto">
+          <div class="flex items-center justify-between mb-6">
+            <h2 class="text-xl font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-bell text-yellow-400"></i> Solicitudes Pendientes de Aprobación
+            </h2>
+            <span class="text-xs text-gray-400">Esperando respuesta del dueño</span>
+          </div>
+          <div id="pending-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    let adminKey = localStorage.getItem('estrop_admin_key') || '';
+    let globalData = { clients: [], confirmed: [], pending: [] };
+    let selectedClient = null;
+
+    if (adminKey) {
+      document.getElementById('login-modal').classList.add('hidden');
+      document.getElementById('app').classList.remove('hidden');
+      loadData();
+    }
+
+    async function login() {
+      const pass = document.getElementById('admin-pass').value.trim();
+      if (!pass) return;
+      try {
+        const res = await fetch(`/api/admin/data?key=${encodeURIComponent(pass)}`);
+        if (res.ok) {
+          adminKey = pass;
+          localStorage.setItem('estrop_admin_key', pass);
+          document.getElementById('login-modal').classList.add('hidden');
+          document.getElementById('app').classList.remove('hidden');
+          const data = await res.json();
+          renderData(data);
+        } else {
+          document.getElementById('login-error').classList.remove('hidden');
+        }
+      } catch (err) {
+        document.getElementById('login-error').classList.remove('hidden');
+      }
+    }
+
+    function logout() {
+      localStorage.removeItem('estrop_admin_key');
+      location.reload();
+    }
+
+    async function loadData() {
+      if (!adminKey) return;
+      try {
+        const res = await fetch(`/api/admin/data?key=${encodeURIComponent(adminKey)}`);
+        if (res.ok) {
+          const data = await res.json();
+          renderData(data);
+        } else if (res.status === 401) {
+          logout();
+        }
+      } catch (err) {
+        console.error('Error fetching data:', err);
+      }
+    }
+
+    function renderData(data) {
+      globalData = data;
+      document.getElementById('badge-chats').textContent = data.clients.length;
+      document.getElementById('badge-confirmed').textContent = data.confirmed.length;
+      document.getElementById('badge-pending').textContent = data.pending.length;
+
+      renderClientsList(data.clients);
+      renderConfirmed(data.confirmed);
+      renderPending(data.pending);
+
+      if (selectedClient) {
+        const updated = data.clients.find(c => c.phone === selectedClient.phone);
+        if (updated) selectClient(updated);
+      }
+    }
+
+    function renderClientsList(clients) {
+      const container = document.getElementById('clients-list');
+      if (!clients.length) {
+        container.innerHTML = `<div class="p-8 text-center text-gray-500 text-sm">No hay conversaciones registradas todavía</div>`;
+        return;
+      }
+      container.innerHTML = clients.map(c => {
+        const lastMsg = c.history.length ? c.history[c.history.length - 1].text : 'Sin mensajes';
+        const isSelected = selectedClient && selectedClient.phone === c.phone;
+        return `
+          <div onclick="onSelectClientPhone('${c.phone}')" class="p-4 cursor-pointer transition ${isSelected ? 'bg-brand-card border-l-4 border-yellow-400' : 'hover:bg-brand-card/40'}">
+            <div class="flex items-center justify-between mb-1">
+              <span class="font-bold text-sm text-white flex items-center gap-1.5">
+                <i class="fa-solid fa-phone text-xs text-gray-400"></i> +${c.phone}
+              </span>
+              <span class="text-[10px] text-gray-400 font-mono">${c.last_activity}</span>
+            </div>
+            <p class="text-xs text-gray-400 truncate mb-2">${lastMsg}</p>
+            <div class="flex items-center justify-between text-[11px]">
+              <span class="px-2 py-0.5 rounded-full bg-yellow-500/10 text-yellow-400 font-medium">${c.state}</span>
+              ${c.data && c.data.people ? `<span class="text-gray-400">👥 ~${c.data.people} pers</span>` : ''}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function onSelectClientPhone(phone) {
+      const c = globalData.clients.find(x => x.phone === phone);
+      if (c) selectClient(c);
+    }
+
+    function selectClient(c) {
+      selectedClient = c;
+      renderClientsList(globalData.clients);
+      document.getElementById('chat-empty').classList.add('hidden');
+      document.getElementById('chat-view').classList.remove('hidden');
+
+      document.getElementById('chat-client-phone').textContent = `+${c.phone}`;
+      document.getElementById('chat-client-status').textContent = `Estado: ${c.state}`;
+      document.getElementById('chat-wa-direct-link').href = `https://wa.me/${c.phone}`;
+
+      // Summary banner
+      const banner = document.getElementById('chat-data-banner');
+      if (c.data && (c.data.people || c.data.date || c.data.room_name)) {
+        banner.classList.remove('hidden');
+        banner.innerHTML = `
+          ${c.data.people ? `<span class="bg-brand-dark px-2.5 py-1 rounded-md border border-brand-border"><strong class="text-yellow-400">👥 Personas:</strong> ~${c.data.people}</span>` : ''}
+          ${c.data.date ? `<span class="bg-brand-dark px-2.5 py-1 rounded-md border border-brand-border"><strong class="text-yellow-400">📅 Fecha:</strong> ${c.data.date}</span>` : ''}
+          ${c.data.room_name ? `<span class="bg-brand-dark px-2.5 py-1 rounded-md border border-brand-border"><strong class="text-yellow-400">📍 Sala:</strong> ${c.data.room_name} (${c.data.option_title || ''})</span>` : ''}
+          ${c.data.total ? `<span class="bg-brand-dark px-2.5 py-1 rounded-md border border-brand-border"><strong class="text-yellow-400">💰 Total:</strong> ${c.data.total}€</span>` : ''}
+          ${c.data.notes ? `<span class="bg-brand-dark px-2.5 py-1 rounded-md border border-brand-border"><strong class="text-yellow-400">📝 Notas:</strong> ${c.data.notes}</span>` : ''}
+        `;
+      } else {
+        banner.classList.add('hidden');
+      }
+
+      // Render messages
+      const msgBox = document.getElementById('chat-messages');
+      if (!c.history || !c.history.length) {
+        msgBox.innerHTML = `<div class="p-8 text-center text-gray-500 text-sm">No hay mensajes registrados aún en este chat.</div>`;
+      } else {
+        msgBox.innerHTML = c.history.map(m => {
+          const isClient = m.sender === 'client';
+          return `
+            <div class="flex flex-col ${isClient ? 'items-end' : 'items-start'}">
+              <div class="max-w-[80%] p-3 text-sm shadow-md whitespace-pre-wrap ${isClient ? 'chat-bubble-client text-white' : 'chat-bubble-bot text-gray-200'}">
+                ${m.text}
+              </div>
+              <span class="text-[10px] text-gray-500 mt-1 px-1 font-mono">${m.time} • ${isClient ? 'Cliente' : 'Bot'}</span>
+            </div>
+          `;
+        }).join('');
+        msgBox.scrollTop = msgBox.scrollHeight;
+      }
+    }
+
+    function renderConfirmed(confirmed) {
+      const grid = document.getElementById('confirmed-grid');
+      if (!confirmed.length) {
+        grid.innerHTML = `<div class="col-span-full p-12 text-center text-gray-500">No hay reservas confirmadas activas</div>`;
+        return;
+      }
+      grid.innerHTML = confirmed.map(r => `
+        <div class="bg-brand-card border border-brand-border rounded-2xl p-5 shadow-lg flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="font-mono text-xs px-2.5 py-1 rounded-lg bg-yellow-500/10 text-yellow-400 font-bold">#${r.id}</span>
+              <span class="text-xs text-green-400 font-bold bg-green-500/10 px-2 py-0.5 rounded-full">Confirmada</span>
+            </div>
+            <h4 class="font-bold text-white text-base mb-1">+${r.client_phone}</h4>
+            <div class="space-y-1.5 text-xs text-gray-300 mt-3">
+              <p><strong class="text-gray-400">📅 Fecha:</strong> ${r.date}</p>
+              <p><strong class="text-gray-400">👥 Personas:</strong> ${r.people}</p>
+              <p><strong class="text-gray-400">📍 Sala:</strong> ${r.room_name} — ${r.option_title}</p>
+              <p><strong class="text-gray-400">💰 Total estimado:</strong> ${r.total}€</p>
+              <p><strong class="text-gray-400">📝 Notas:</strong> ${r.notes || 'Ninguna'}</p>
+            </div>
+          </div>
+          <div class="mt-5 pt-4 border-t border-brand-border/60 flex items-center justify-between gap-2">
+            <a href="https://wa.me/${r.client_phone}" target="_blank" class="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1.5 transition">
+              <i class="fa-brands fa-whatsapp"></i> Chat
+            </a>
+            <button onclick="cancelReservation('${r.id}')" class="px-3 py-1.5 rounded-xl bg-red-950 hover:bg-red-900 text-red-300 text-xs font-semibold transition">
+              Cancelar
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderPending(pending) {
+      const grid = document.getElementById('pending-grid');
+      if (!pending.length) {
+        grid.innerHTML = `<div class="col-span-full p-12 text-center text-gray-500">No hay solicitudes pendientes en este momento</div>`;
+        return;
+      }
+      grid.innerHTML = pending.map(r => `
+        <div class="bg-brand-card border border-brand-border rounded-2xl p-5 shadow-lg flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <span class="font-mono text-xs px-2.5 py-1 rounded-lg bg-blue-500/10 text-blue-400 font-bold">#${r.id}</span>
+              <span class="text-xs text-yellow-400 font-bold bg-yellow-500/10 px-2 py-0.5 rounded-full">Pendiente</span>
+            </div>
+            <h4 class="font-bold text-white text-base mb-1">+${r.client_phone}</h4>
+            <div class="space-y-1.5 text-xs text-gray-300 mt-3">
+              <p><strong class="text-gray-400">📅 Fecha:</strong> ${r.date}</p>
+              <p><strong class="text-gray-400">👥 Personas:</strong> ${r.people}</p>
+              <p><strong class="text-gray-400">📍 Sala:</strong> ${r.room_name} — ${r.option_title}</p>
+              <p><strong class="text-gray-400">💰 Total:</strong> ${r.total}€</p>
+              <p><strong class="text-gray-400">📝 Notas:</strong> ${r.notes || 'Ninguna'}</p>
+            </div>
+          </div>
+          <div class="mt-5 pt-4 border-t border-brand-border/60 flex items-center gap-2">
+            <button onclick="handleAction('accept', '${r.id}')" class="flex-1 py-2 rounded-xl bg-green-600 hover:bg-green-500 text-white text-xs font-bold transition">
+              Confirmar
+            </button>
+            <button onclick="handleAction('reject', '${r.id}')" class="flex-1 py-2 rounded-xl bg-red-950 hover:bg-red-900 text-red-300 text-xs font-bold transition">
+              Rechazar
+            </button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function cancelReservation(id) {
+      if (!confirm(`¿Seguro que deseas cancelar la reserva #${id}? Se notificará al cliente por WhatsApp.`)) return;
+      await handleAction('cancel', id);
+    }
+
+    async function handleAction(action, id) {
+      try {
+        const res = await fetch('/api/admin/action', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: adminKey, action, id })
+        });
+        if (res.ok) {
+          loadData();
+        } else {
+          alert('Error procesando la solicitud');
+        }
+      } catch (err) {
+        alert('Error conectando con el servidor');
+      }
+    }
+
+    function switchTab(tab) {
+      document.querySelectorAll('.tab-btn').forEach(b => {
+        b.classList.remove('bg-yellow-500', 'text-black');
+        b.classList.add('text-gray-400');
+      });
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+
+      const activeBtn = document.getElementById(`tab-btn-${tab}`);
+      activeBtn.classList.add('bg-yellow-500', 'text-black');
+      activeBtn.classList.remove('text-gray-400');
+
+      document.getElementById(`tab-${tab}`).classList.remove('hidden');
+    }
+
+    function filterClients() {
+      const q = document.getElementById('client-search').value.toLowerCase().trim();
+      const filtered = globalData.clients.filter(c => c.phone.includes(q));
+      renderClientsList(filtered);
+    }
+
+    // Auto refresh cada 12 segundos
+    setInterval(loadData, 12000);
+  </script>
+</body>
+</html>
+"""
+    return HTMLResponse(content=html_content)
+
