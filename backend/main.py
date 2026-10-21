@@ -27,12 +27,12 @@ GOOGLE_SHEET_URL = os.getenv("GOOGLE_SHEET_URL")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "estrop2026")
 
 ROOMS = {
-    "sala1": {"name": "Sala 1 (Planta Baja)", "min_spend": 300, "options": {
+    "sala1": {"name": "Sala 1 (Sala de Arriba)", "min_spend": 300, "options": {
         "s1_12": {"title": "2 Consumiciones (12€)", "price": 12, "description": "2 consumiciones en barra"},
         "s1_22": {"title": "Barra Libre (22€)", "price": 22, "description": "Vino, cerveza, cava, refrescos y agua ilimitados"},
         "s1_32": {"title": "Libre Combinados (32€)", "price": 32, "description": "Vino, cerveza, cava, refrescos, agua y combinados ilimitados"}
     }},
-    "sala2": {"name": "Sala 2 (Planta Superior)", "min_spend": 500, "options": {
+    "sala2": {"name": "Sala 2 (Sala de Abajo)", "min_spend": 500, "options": {
         "s2_15": {"title": "2 Consumiciones (15€)", "price": 15, "description": "2 consumiciones en barra"},
         "s2_25": {"title": "Barra Libre (25€)", "price": 25, "description": "Vino, cerveza, cava, refrescos y agua ilimitados"},
         "s2_35": {"title": "Libre Combinados (35€)", "price": 35, "description": "Vino, cerveza, cava, refrescos, agua y combinados ilimitados"}
